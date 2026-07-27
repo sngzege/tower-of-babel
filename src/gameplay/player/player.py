@@ -98,21 +98,23 @@ class Player:
         )
 
         # Phase 4 combat components.
-        self.invuln_service = InvulnerabilityService(on_state_changed=lambda v: None)
+        self.invuln_service = InvulnerabilityService(
+            on_state_changed=lambda v: None
+        )
         self.status_manager = StatusEffectManager()
         self.attack_executor = AttackExecutor(
             AttackData(
                 id="default_attack",
                 windup=0.0,
-                active=0.15,
-                recovery=0.1,
-                cooldown=stats.attack_speed,
+                active=0.12,
+                recovery=0.05,
+                cooldown=0.5,
                 damage=25.0,
                 damage_types=frozenset({"physical"}),
-                hitbox_width=stats.hitbox_width * 1.3,
-                hitbox_height=stats.hitbox_height * 1.3,
-                hitbox_offset_x=stats.hitbox_offset_x,
-                hitbox_offset_y=stats.hitbox_offset_y,
+                hitbox_width=16.0,
+                hitbox_height=34.0,
+                hitbox_offset_x=0.0,
+                hitbox_offset_y=-12.0,
             )
         )
 
