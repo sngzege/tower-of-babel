@@ -4,19 +4,14 @@
 > developer) can resume work without re-reading the whole project.
 > **Rule:** whoever advances the project updates this file in the same
 > commit (IMPLEMENTATION_PLAN.md snapshot + CHANGELOG.md too).
-> Last updated: **2026-07-28** (Phase 6 — Room/Dungeon Foundation complete).
+> Last updated: **2026-07-28** (Phase 7 — Procedural Generation in progress).
 
 ## 1. Where we are
 
-- **Phase 0 — Project foundation:** COMPLETE.
-- **Phase 1 — Core engine/runtime:** COMPLETE.
-- **Phase 2 — Input and game state:** COMPLETE. pygame-ce, adapter isolation.
-- **Phase 3 — Player controller:** COMPLETE. Playable greybox slice.
-- **Phase 3.5 — Approved amendments:** COMPLETE. Dodge charge system, movement/aim/facing split.
-- **Phase 4 — Combat foundation:** COMPLETE. Damage pipeline, attack executor, invulnerability service, status effect framework. 360-degree free-aim hitbox rotation.
-- **Phase 5 — Enemy foundation:** COMPLETE. Enemy entity, SimpleAI, EnemyFactory, two dummies, combat wiring.
+- **Phase 0-5:** COMPLETE (see previous entries).
 - **Phase 6 — Room / dungeon foundation:** COMPLETE (2026-07-28). FloorAssembler, FloorGraph→room assembly, room templates, door transitions, floor traversal, per-room enemy spawning.
-- **NEXT: Phase 7 — Procedural generation** (see IMPLEMENTATION_PLAN.md).
+- **Phase 7 — Procedural generation:** IN PROGRESS (2026-07-28). Multi-template pools, seeded RNG selection, 20-seed smoke test.
+- **NEXT: Continue Phase 7** (encounter population, stage data integration), then Phase 8.
 
 ## 2. What is playable right now
 

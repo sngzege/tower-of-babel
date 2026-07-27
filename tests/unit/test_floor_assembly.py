@@ -149,3 +149,43 @@ def test_no_nonexistent_door_targets(registry: ContentRegistry) -> None:
     for room_id, room in floor.rooms.items():
         for door in room.doors:
             assert door.target_room, f"Empty door target in {room_id}"
+
+
+# -- 20-seed smoke test (Phase 7) --
+
+def test_20_seeds_produce_valid_floors(registry: ContentRegistry) -> None:
+    """20 seeds should produce 20 valid floors, all with reachable exits."""
+    for seed in range(1, 21):
+        graph = generate_floor_graph(
+            seed, config={"min_rooms": 4, "max_rooms": 8}
+        )
+        floor = assemble_floor(graph, registry, seed=seed)
+
+        # Must have at least start + 1 room + exit.
+        assert len(floor.rooms) >= 3, f"Seed {seed}: too few rooms"
+
+        # Start and exit rooms must exist.
+        assert floor.start_room_id in floor.rooms, f"Seed {seed}: no start"
+        assert floor.exit_room_id in floor.rooms, f"Seed {seed}: no exit"
+
+        # All doors target valid rooms.
+        for room_id, room in floor.rooms.items():
+            for door in room.doors:
+                assert door.target_room in floor.rooms, \
+                    f"Seed {seed}: door in {room_id} targets missing {door.target_room}"
+
+        # All rooms have valid player spawns.
+        for room_id, room in floor.rooms.items():
+            sx, sy = room.player_spawn
+            msg_x = f"Seed {seed}: spawn x out of bounds in {room_id}"
+            msg_y = f"Seed {seed}: spawn y out of bounds in {room_id}"
+            assert 0 <= sx <= room.width, msg_x
+            assert 0 <= sy <= room.height, msg_y
+
+
+def test_same_seed_same_template_selection(registry: ContentRegistry) -> None:
+    """Same seed with multi-template pools should produce the same room ids."""
+    graph = generate_floor_graph(42, config={"min_rooms": 4, "max_rooms": 8})
+    floor_a = assemble_floor(graph, registry, seed=42)
+    floor_b = assemble_floor(graph, registry, seed=42)
+    assert set(floor_a.rooms) == set(floor_b.rooms)

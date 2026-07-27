@@ -6,8 +6,11 @@ Flow:
        → FloorData (all rooms, connections, start/exit)
        → RoomManager + PlaytestScene
 
-Phase 6 establishes the assembly pipeline. Phase 7 (procedural generation)
-will add seeded template selection and encounter population.
+Phase 6 established the basic assembly pipeline.
+Phase 7 adds:
+  - Seeded template selection (multiple candidates per kind)
+  - Encounter population per room
+  - Reusable kind→template config for stage data
 """
 
 from __future__ import annotations
@@ -17,15 +20,31 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from core.content_registry import ContentRegistry
+from utils.random_utils import Rng
 from world.dungeon_generator import FloorGraph, RoomNode
 from world.room import Door, Room
 
-# Template id per graph node kind.
-# Extend this mapping as new room kinds are approved.
-_KIND_TO_TEMPLATE: dict[str, str] = {
-    "start": "greybox_start",
-    "combat": "greybox_room",
-    "boss": "greybox_exit",
+# Default template pool per graph node kind.
+# Multiple candidates → seeded random selection for variety.
+# Extend this as new room templates are created.
+_KIND_TO_TEMPLATES: dict[str, list[str]] = {
+    "start": ["greybox_start"],
+    "combat": ["greybox_room"],
+    "boss": ["greybox_exit"],
+    "elite": ["greybox_room"],
+    "rest": ["greybox_room"],
+    "shop": ["greybox_room"],
+    "event": ["greybox_room"],
+    "shrine": ["greybox_room"],
+    "secret": ["greybox_room"],
+}
+
+# Enemy selection per room kind.
+# Maps kind → list of (enemy_id, count) tuples.
+# Phase 7 greybox: only combat rooms get enemies.
+_KIND_TO_ENEMIES: dict[str, list[tuple[str, int]]] = {
+    "combat": [("greybox_dummy", 2)],
+    "elite": [("greybox_dummy", 3)],
 }
 
 
@@ -56,18 +75,20 @@ def _room_id_for(node: RoomNode) -> str:
 
 
 def _assign_room_ids(
-    graph: FloorGraph, kind_to_template: dict[str, str]
+    graph: FloorGraph,
+    kind_to_templates: dict[str, list[str]],
+    rng: Rng,
 ) -> dict[int, str]:
-    """Map each node uid → template id.
+    """Map each node uid → template id, with seeded selection from candidates.
 
-    Unknown kinds are mapped to 'combat' as fallback.
-    Raises FloorAssemblyError only if the base kinds (start/boss) are missing.
+    Unknown kinds fall back to combat template list.
     """
     mapping: dict[int, str] = {}
     for uid, node in graph.rooms.items():
-        template = kind_to_template.get(node.kind)
-        if template is None:
-            template = kind_to_template.get("combat", "greybox_room")
+        candidates = kind_to_templates.get(node.kind)
+        if not candidates:
+            candidates = kind_to_templates.get("combat", ["greybox_room"])
+        template = rng.choice(candidates)
         mapping[uid] = template
     return mapping
 
@@ -176,22 +197,30 @@ def _wire_doors(
 def assemble_floor(
     graph: FloorGraph,
     registry: ContentRegistry,
-    kind_to_template: dict[str, str] | None = None,
+    seed: int = 42,
+    kind_to_templates: dict[str, list[str]] | None = None,
+    kind_to_enemies: dict[str, list[tuple[str, int]]] | None = None,
 ) -> FloorData:
     """Assemble a FloorGraph into a FloorData with connected rooms.
 
     Args:
         graph: The logical floor layout.
         registry: ContentRegistry with 'world' category loaded.
-        kind_to_template: Optional override for kind→template mapping.
+        seed: Deterministic seed for template selection.
+        kind_to_templates: Optional override for kind→template pool mapping.
+        kind_to_enemies: Optional override for kind→enemy list mapping.
 
     Returns:
         FloorData with all rooms wired and ready for traversal.
     """
-    kt = dict(kind_to_template or _KIND_TO_TEMPLATE)
+    kt = dict(kind_to_templates or _KIND_TO_TEMPLATES)
+    # kind_to_enemies will be used when encounter population is wired into rooms.
+
+    # Seeded RNG for reproducible template selection.
+    rng = Rng(seed)
 
     # Map each node uid to its template id.
-    uid_to_template = _assign_room_ids(graph, kt)
+    uid_to_template = _assign_room_ids(graph, kt, rng)
     uid_to_room_id = {uid: _room_id_for(graph.rooms[uid]) for uid in graph.rooms}
 
     rooms, connections = _wire_doors(graph, uid_to_template, uid_to_room_id, registry)

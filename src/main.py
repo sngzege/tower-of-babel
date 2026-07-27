@@ -72,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
         floor_graph.boss_uid,
     )
 
-    floor_data = assemble_floor(floor_graph, registry)
+    floor_data = assemble_floor(floor_graph, registry, seed=args.seed)
 
     start_room = floor_data.rooms[floor_data.start_room_id]
     world = start_room.build_collision_world()
