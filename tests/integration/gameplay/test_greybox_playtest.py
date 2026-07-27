@@ -97,9 +97,7 @@ def test_player_cannot_cross_walls() -> None:
     _run(scene, ActionFrame(move_x=1.0), 600)
     right_wall = room.solids[3]  # right border wall from greybox_arena.yaml
     assert scene.player.body.box.right <= right_wall.left + 1e-6
-    assert scene.world.query(
-        scene.player.body.box, layers=[CollisionLayer.WORLD]
-    ) == []
+    assert scene.world.query(scene.player.body.box, layers=[CollisionLayer.WORLD]) == []
 
 
 def test_dodge_grants_iframes_and_rolls(scene: PlaytestScene | None = None) -> None:

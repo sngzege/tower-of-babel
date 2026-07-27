@@ -91,8 +91,7 @@ class Room:
 
         if problems:
             raise RoomError(
-                f"invalid room document '{source}': "
-                + "; ".join(sorted(set(problems)))
+                f"invalid room document '{source}': " + "; ".join(sorted(set(problems)))
             )
         return cls(
             room_id=source,

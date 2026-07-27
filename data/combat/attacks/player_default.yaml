@@ -1,0 +1,17 @@
+# Greybox player attack data (Phase 4 — framework test).
+# This is a temporary profile used while developing the combat system.
+# Real weapon data comes later per DESIGN_DECISIONS.md L6.
+id: player_default_attack
+name: Default Attack (Greybox)
+tags: [greybox, physical]
+windup: 0.0
+active: 0.15
+recovery: 0.1
+cooldown: 0.3
+damage: 25.0
+damage_types: [physical]
+hitbox:
+  width: 24.0
+  height: 20.0
+  offset_x: 0.0
+  offset_y: 0.0

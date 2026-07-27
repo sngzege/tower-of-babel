@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 4 — Combat Foundation (2026-07-27):
+  - Damage pipeline (`src/gameplay/combat/damage.py`): `DamagePipeline` with invulnerability-aware damage application, overkill tracking, multi-hit stopping at death. Pure logic, framework-free.
+  - Attack executor (`src/gameplay/combat/attack.py`): `AttackExecutor` managing the windup → active → recovery → cooldown lifecycle. Data-driven `AttackData` with configurable timing, damage, hitbox geometry. `AttackPhase` enum for state machine integration.
+  - Invulnerability service (`src/gameplay/combat/invulnerability.py`): `InvulnerabilityService` managing multiple concurrent invulnerability sources (dodge, hitstun, etc.) with independent timers, `has_source`/`remaining` queries, `on_state_changed` callback, and `clear`.
+  - Status effect framework (`src/gameplay/combat/status_effects.py`): `StatusEffectManager` with tag-based slot system, stacking (with cap), duration refresh, tick intervals, modifier aggregation.
+  - Combat system (`src/gameplay/combat/combat_system.py`): `CombatSystem` orchestrating hit resolution via AABB overlap detection between hitboxes and vulnerable hurtboxes, publishing `entity_damaged`/`entity_killed`/`attack_hit`/`status_applied`/`status_expired` events.
+  - Player integration: `Player` gains `invuln_service`, `status_manager`, and `attack_executor`. Dodge i-frames use the service instead of raw `_iframe_remaining`. Attack intent triggers the executor. `Player.reset()` clears combat state.
+  - PlaytestScene: attack hitbox visualisation (orange rect) during the active window. `CombatSystem` wired and ready for Phase 5 enemies.
+  - Data pipeline: `data/schemas/attack.schema.yaml`, `data/combat/attacks/player_default.yaml` (greybox test attack). `combat` category added to `validate_data.py` schema mapping.
+  - 46 new tests (suite: 209 passed + 1 skip):
+    - `tests/unit/combat/test_damage.py` — 10 damage pipeline tests
+    - `tests/unit/combat/test_invulnerability.py` — 14 invulnerability service tests
+    - `tests/unit/combat/test_attack.py` — 11 attack executor tests
+    - `tests/unit/combat/test_status_effects.py` — 11 status effect tests
+
 - Initial empty project skeleton (directory structure per PROJECT_STRUCTURE.md).
 - Design drafts for the four design documents (proposal status, decisions D1-D15 open).
 - Pre-production infrastructure (autonomous session, 2026-07-26):

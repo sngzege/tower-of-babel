@@ -8,10 +8,12 @@ Responsibilities stay isolated (no monolithic Player):
 - state transitions -> player_state machine (core.state_machine)
 - aim/facing        -> set externally by scene-level AimController (policy)
 - dodge charges     -> dodge_charges.DodgeCharges (reusable service)
+- combat            -> AttackExecutor + InvulnerabilityService
+                        + StatusEffectManager (Phase 4)
 - configuration     -> player_stats.PlayerStats (every value from data files)
 
-Combat (Phase 4) and abilities (Phase 8) attach through entity components
-and the event bus - Player gains no god-class duties (RULES.md section 12).
+Combat (Phase 4) attaches through entity components and the event bus —
+Player gains no god-class duties (RULES.md section 12).
 """
 
 from __future__ import annotations
@@ -21,6 +23,9 @@ from dataclasses import dataclass
 
 from core.events import EventBus
 from engine.entity import Entity
+from gameplay.combat.attack import AttackData, AttackExecutor
+from gameplay.combat.invulnerability import InvulnerabilityService
+from gameplay.combat.status_effects import StatusEffectManager
 from gameplay.player.dodge_charges import DodgeCharges
 from gameplay.player.player_controller import PlayerIntent
 from gameplay.player.player_state import PlayerState, build_player_state_machine
@@ -36,11 +41,7 @@ EVENT_DODGE = "player_dodge"
 
 @dataclass(frozen=True)
 class AnimationPose:
-    """Render-facing animation hook (Phase 3 spec: hooks exist before sprites).
-
-    Clip naming convention ("idle_down", "dodge_up_right", ...) is settled
-    so the sprite pipeline targets it.
-    """
+    """Render-facing animation hook (Phase 3 spec: hooks exist before sprites)."""
 
     state: PlayerState
     facing: Direction8
@@ -96,6 +97,25 @@ class Player:
             max_charges=stats.dodge_max_charges, cooldown=stats.dodge_cooldown
         )
 
+        # Phase 4 combat components.
+        self.invuln_service = InvulnerabilityService(on_state_changed=lambda v: None)
+        self.status_manager = StatusEffectManager()
+        self.attack_executor = AttackExecutor(
+            AttackData(
+                id="default_attack",
+                windup=0.0,
+                active=0.15,
+                recovery=0.1,
+                cooldown=stats.attack_speed,
+                damage=25.0,
+                damage_types=frozenset({"physical"}),
+                hitbox_width=stats.hitbox_width * 1.3,
+                hitbox_height=stats.hitbox_height * 1.3,
+                hitbox_offset_x=stats.hitbox_offset_x,
+                hitbox_offset_y=stats.hitbox_offset_y,
+            )
+        )
+
         # State machine.
         self._machine = build_player_state_machine()
         self._dodge_elapsed = 0.0
@@ -144,10 +164,17 @@ class Player:
     # -- Per-frame update --
 
     def update(self, intent: PlayerIntent, world: CollisionWorld, dt: float) -> None:
-        """Advance player: charge regen -> state logic -> integration."""
+        """Advance: charge regen -> invulnerability -> attack -> state logic."""
         if self.state is PlayerState.DEAD:
-            return  # placeholder: Phase 4 fills death handling.
+            return
         self.dodge_charges.update(dt)
+        self.invuln_service.update(dt)
+
+        # Handle attack intent.
+        if intent.primary_attack_pressed:
+            self.attack_executor.trigger()
+        self.attack_executor.update(dt)
+
         if self.state is PlayerState.HIT:
             pass  # placeholder: hit-stun arrives with combat (Phase 4).
         elif self.state is PlayerState.DODGE:
@@ -155,7 +182,7 @@ class Player:
         else:
             self._update_grounded(intent, dt)
         self.body.integrate(world, dt)
-        self.hurtbox.vulnerable = not self.invulnerable
+        self.hurtbox.vulnerable = not self.invuln_service.invulnerable
 
     def _update_grounded(self, intent: PlayerIntent, dt: float) -> None:
         """IDLE/MOVE: dodge > else; charge consumed only on successful dodge."""
@@ -181,7 +208,7 @@ class Player:
         )
 
     def _start_dodge(self, intent: PlayerIntent) -> None:
-        """Begin a roll: consume charge, set velocity, start i-frame window."""
+        """Begin a roll: consume charge, set velocity, add invulnerability source."""
         if intent.wish_x != 0.0 or intent.wish_y != 0.0:
             length = math.hypot(intent.wish_x, intent.wish_y)
             self._dodge_direction = (intent.wish_x / length, intent.wish_y / length)
@@ -196,7 +223,7 @@ class Player:
         else:
             self._dodge_direction = (0.0, 1.0)
         self._dodge_elapsed = 0.0
-        self._iframe_remaining = self.stats.dodge_invulnerability
+        self.invuln_service.add("dodge", self.stats.dodge_invulnerability)
         self._movement_direction = Direction8.from_vector(*self._dodge_direction)
         self.body.set_velocity(
             self._dodge_direction[0] * self.stats.roll_speed,
@@ -214,7 +241,6 @@ class Player:
     def _update_dodge(self, intent: PlayerIntent, dt: float) -> None:
         """Maintain roll velocity; input is ignored until the roll ends."""
         self._dodge_elapsed += dt
-        self._iframe_remaining = max(0.0, self._iframe_remaining - dt)
         self.body.set_velocity(
             self._dodge_direction[0] * self.stats.roll_speed,
             self._dodge_direction[1] * self.stats.roll_speed,
@@ -242,11 +268,12 @@ class Player:
         self.health = self.stats.max_health
         self.mana = self.stats.max_mana
         self.dodge_charges.reset()
+        self.invuln_service.clear()
+        self.status_manager.clear()
         self._aim_vector = (0.0, 1.0)
         self._movement_direction = None
         self._machine.set_state(PlayerState.IDLE.value)
         self._dodge_elapsed = 0.0
-        self._iframe_remaining = 0.0
 
     @property
     def alive(self) -> bool:
@@ -254,5 +281,5 @@ class Player:
 
     @property
     def invulnerable(self) -> bool:
-        """True while dodge i-frames remain (Phase 4 adds other sources)."""
-        return self._iframe_remaining > 0.0
+        """True while any invulnerability source is active (dodge, hitstun, etc.)."""
+        return self.invuln_service.invulnerable

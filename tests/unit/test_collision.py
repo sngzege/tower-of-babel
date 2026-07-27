@@ -87,9 +87,7 @@ def test_move_and_slide_resolves_against_multiple_colliders() -> None:
     )
     result = world.move_and_slide(AABB(0.0, 0.0, 10.0, 10.0), 40.0, 40.0)
     assert result.hit_x and result.hit_y
-    assert not any(
-        result.box.intersects(c.box) for c in world.query(result.box)
-    )
+    assert not any(result.box.intersects(c.box) for c in world.query(result.box))
 
 
 def test_add_box_registers_collider() -> None:

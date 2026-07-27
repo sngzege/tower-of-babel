@@ -52,7 +52,7 @@ def test_two_charges_regenerate_independently() -> None:
     dc.update(0.8)  # slot 0 elapsed=0.8, not full yet
     dc.consume()  # slot 1 starts at 0.0
     dc.update(0.7)  # total 1.5 from first: slot 0 elapsed=1.5 (full)
-                     # slot 1 elapsed=0.7 (still recharging)
+    # slot 1 elapsed=0.7 (still recharging)
     assert dc.current == 1
     dc.update(0.8)  # slot 1 elapsed=1.5
     assert dc.current == MAX

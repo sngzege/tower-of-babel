@@ -59,8 +59,9 @@ def test_iframes_active_only_inside_configured_window(
     player.update(DODGE_RIGHT, world, DT)
     assert player.invulnerable
     assert not player.hurtbox.vulnerable
+    assert player.invuln_service.has_source("dodge")
 
-    while player._iframe_remaining > 0.0:  # noqa: SLF001
+    while player.invuln_service.invulnerable:
         player.update(IDLE_INTENT, world, DT)
     assert player.state is PlayerState.DODGE
     assert not player.invulnerable
@@ -83,9 +84,7 @@ def test_roll_returns_to_move_with_held_input(
     assert player.state is PlayerState.MOVE
 
 
-def test_dodge_during_roll_is_ignored(
-    player: Player, world: CollisionWorld
-) -> None:
+def test_dodge_during_roll_is_ignored(player: Player, world: CollisionWorld) -> None:
     player.update(DODGE_RIGHT, world, DT)
     for _ in range(3):
         player.update(PlayerIntent(wish_x=1.0), world, DT)

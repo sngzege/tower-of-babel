@@ -1,0 +1,22 @@
+# Status effect data schema (Phase 4 — combat framework).
+schema: status_effect
+version: 1
+fields:
+  id:           {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
+  name:         {type: str, required: true}
+  description:  {type: str}
+  duration:     {type: float, min: 0.0, required: true}
+  tick_interval: {type: float, min: 0.0, default: 0.0}
+  tags:         {type: list, item: str, default: []}
+  max_stacks:   {type: int, min: 1, default: 1}
+  modifiers:
+    type: dict
+    keys: {}
+    default: {}
+example:
+  id: burn
+  name: Burn
+  duration: 3.0
+  tick_interval: 0.5
+  tags: [fire, damage_over_time]
+  max_stacks: 3

@@ -30,6 +30,9 @@ project-root/
 │
 ├── data/
 │   │
+│   ├── combat/                  # Phase 4 combat data (added 2026-07-27)
+│   │   └── attacks/
+│   │
 │   ├── player/
 │   │   ├── stats.yaml
 │   │   ├── abilities.yaml

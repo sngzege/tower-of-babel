@@ -30,6 +30,7 @@ def aim() -> AimController:
 
 # -- Movement and aim independence (tests 1-5) --
 
+
 def test_movement_and_aim_independent(aim: AimController) -> None:
     """W only moves; arrow key only aims."""
     frame = ActionFrame(move_y=-1.0)
@@ -74,6 +75,7 @@ def test_diagonal_movement_does_not_alter_aim(aim: AimController) -> None:
 
 # -- Persistence (test 6) --
 
+
 def test_aim_persists_without_new_input(aim: AimController) -> None:
     aim.resolve(ActionFrame(aim_x=1.0), 0.0, 0.0)
     for _ in range(5):
@@ -83,6 +85,7 @@ def test_aim_persists_without_new_input(aim: AimController) -> None:
 
 
 # -- Mouse screen->world (test 7) --
+
 
 def test_mouse_aim_screen_to_world() -> None:
     """Screen (400, 280) with mock camera(origin=0) -> world (80, 100)."""

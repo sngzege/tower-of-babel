@@ -88,14 +88,10 @@ class Camera:
         stays consistent when the screen shakes.
         """
         world_x = (
-            screen_x
-            - self.shake_offset[0]
-            - self._viewport_width / 2.0
+            screen_x - self.shake_offset[0] - self._viewport_width / 2.0
         ) / self.zoom + self.x
         world_y = (
-            screen_y
-            - self.shake_offset[1]
-            - self._viewport_height / 2.0
+            screen_y - self.shake_offset[1] - self._viewport_height / 2.0
         ) / self.zoom + self.y
         return (world_x, world_y)
 

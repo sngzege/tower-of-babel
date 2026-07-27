@@ -87,10 +87,7 @@ class Gamepad:
 
         # Triggers count as digital actions when pulled past halfway (PROVISIONAL).
         for axis_index, name in _TRIGGER_AXES:
-            if (
-                axis_index < num_axes
-                and self._joystick.get_axis(axis_index) > 0.5
-            ):
+            if axis_index < num_axes and self._joystick.get_axis(axis_index) > 0.5:
                 held.add(name)
         return DeviceSnapshot(
             pressed=frozenset(pressed),
@@ -106,4 +103,3 @@ class Gamepad:
         if abs(value) < self._deadzone:
             return 0.0
         return value
-

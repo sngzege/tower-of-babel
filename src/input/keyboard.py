@@ -101,9 +101,7 @@ class KeyboardMouse:
 
         pos = pygame.mouse.get_pos()
         pointer = (float(pos[0]), float(pos[1]))
-        pointer_moved = (
-            self._last_pointer is not None and pos != self._last_pointer
-        )
+        pointer_moved = self._last_pointer is not None and pos != self._last_pointer
         self._last_pointer = pos
 
         return DeviceSnapshot(
@@ -137,4 +135,3 @@ def _build_key_names(pygame: Any) -> dict[int, str]:
     names[pygame.K_LEFT] = "left"
     names[pygame.K_RIGHT] = "right"
     return names
-

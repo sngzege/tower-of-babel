@@ -58,9 +58,7 @@ class PlayerStats:
         source = str(document.get("id", "<unknown>"))
         stats = document.get("stats")
         if not isinstance(stats, dict):
-            raise PlayerStatsError(
-                f"player document '{source}' has no 'stats' mapping"
-            )
+            raise PlayerStatsError(f"player document '{source}' has no 'stats' mapping")
         problems: list[str] = []
 
         def read(group: str, key: str) -> float:

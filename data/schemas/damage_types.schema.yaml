@@ -1,0 +1,12 @@
+# Damage type definitions schema (Phase 4 — combat framework).
+schema: damage_type
+version: 1
+fields:
+  id:          {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
+  name:        {type: str, required: true}
+  description: {type: str}
+  tags:        {type: list, item: str, default: []}
+example:
+  id: physical
+  name: Physical
+  tags: [base]

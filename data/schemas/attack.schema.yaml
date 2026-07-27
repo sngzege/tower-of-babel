@@ -1,0 +1,33 @@
+# Attack data schema (Phase 4 — combat framework).
+schema: attack
+version: 1
+fields:
+  id:          {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
+  name:        {type: str, required: true}
+  tags:        {type: list, item: str, default: []}
+  windup:      {type: float, min: 0.0, default: 0.0}
+  active:      {type: float, min: 0.01, required: true}
+  recovery:    {type: float, min: 0.0, default: 0.0}
+  cooldown:    {type: float, min: 0.0, default: 0.0}
+  damage:      {type: float, min: 0.0, required: true}
+  damage_types: {type: list, item: str, default: []}
+  hitbox:
+    type: dict
+    keys:
+      width:   {type: float, min: 1.0}
+      height:  {type: float, min: 1.0}
+      offset_x: {type: float}
+      offset_y: {type: float}
+  knockback_x: {type: float, default: 0.0}
+  knockback_y: {type: float, default: 0.0}
+  status_tags: {type: list, item: str, default: []}
+example:
+  id: test_swing
+  name: Test Swing
+  windup: 0.05
+  active: 0.15
+  recovery: 0.1
+  cooldown: 0.3
+  damage: 10.0
+  damage_types: [physical]
+  hitbox: {width: 24.0, height: 20.0, offset_x: 0.0, offset_y: 0.0}

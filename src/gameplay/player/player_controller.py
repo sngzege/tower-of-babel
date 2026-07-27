@@ -18,13 +18,15 @@ from input.input_manager import Action, ActionFrame
 from physics.movement import clamp_magnitude
 
 # The set of action names that become ``ability_pressed`` (combat Phase 4+).
-_ABILITY_ACTIONS = frozenset({
-    Action.CLASS_SKILL,
-    Action.SKILL_1,
-    Action.SKILL_2,
-    Action.ULTIMATE,
-    Action.AURA,
-})
+_ABILITY_ACTIONS = frozenset(
+    {
+        Action.CLASS_SKILL,
+        Action.SKILL_1,
+        Action.SKILL_2,
+        Action.ULTIMATE,
+        Action.AURA,
+    }
+)
 
 
 @dataclass(frozen=True)
