@@ -1,0 +1,27 @@
+# Greybox exit room (Phase 6 floor assembly).
+# End of the floor — entry from the left, no exit on the right.
+id: greybox_exit
+kind: boss
+name: Greybox Exit Room
+tags: [greybox, playtest]
+weight: 0
+min_depth: 0
+size: {width: 960, height: 608}
+player_spawn: {x: 80, y: 304}
+solids:
+  - {x: 0,   y: 0,   w: 960, h: 16}    # top
+  - {x: 0,   y: 592, w: 960, h: 16}    # bottom
+  - {x: 0,   y: 16,  w: 16,  h: 240}   # left wall top
+  - {x: 0,   y: 352, w: 16,  h: 240}   # left wall bottom
+  - {x: 944, y: 16,  w: 16,  h: 576}   # right wall (solid — no exit)
+  # Exit marker.
+  - {x: 860, y: 280, w: 16,  h: 48}    # right-side pillar
+doors:
+  # Left door — entry from previous room (target set by assembler).
+  - x: 0
+    y: 256
+    w: 16
+    h: 96
+    target_room: ""
+    spawn_x: 928
+    spawn_y: 304

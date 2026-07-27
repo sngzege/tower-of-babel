@@ -1,19 +1,9 @@
-"""Greybox playtest scene: the Phase 3 playable slice with Phase 4 combat hooks
-and Phase 5 enemy integration.
+"""Greybox playtest scene: greybox playable slice with combat and
+Phase 6 floor assembly integration.
 
-One hand-authored room, the real player, one or more greybox enemies, and the
-follow camera — all wired from data files. This scene exists to evaluate game
-feel (Phase 3 spec: greybox test map); the real dungeon scene replaces it when
-rooms/doors arrive (Phase 6+), reusing Player, Room, CollisionWorld, and Camera
-unchanged.
-
-Phase 4+5 additions:
-  - CombatSystem for hit resolution (player attacks enemies, enemies attack player)
-  - Greybox enemy entities with AI (chase + attack)
-  - Attack hitbox visualisation during the active window
-  - Enemy rendering (tinted rect + health bar)
-  - Invulnerability-aware rendering
-  - Player hitstun and death handling
+Supports both single-room mode (legacy) and floor-traversal mode.
+In floor mode, the scene accepts a FloorData from the FloorAssembler
+and lets the player traverse the connected rooms.
 """
 
 from __future__ import annotations
@@ -28,6 +18,7 @@ from gameplay.combat.combat_system import (
 from gameplay.combat.damage import DamageInstance
 from gameplay.enemies.enemy import Enemy
 from gameplay.enemies.enemy_ai import SimpleAI
+from gameplay.enemies.enemy_factory import build_enemy
 from gameplay.player.aim_controller import AimController
 from gameplay.player.player import Player
 from gameplay.player.player_controller import PlayerController
@@ -36,6 +27,7 @@ from input.input_manager import ActionFrame
 from physics.collision import AABB, CollisionWorld
 from rendering.camera import Camera
 from rendering.renderer import Color, Renderer
+from world.floor_assembler import FloorData
 from world.room import Room
 from world.room_manager import RoomManager
 
@@ -76,9 +68,9 @@ class PlaytestScene(Scene):
         world: CollisionWorld,
         camera: Camera,
         registry: ContentRegistry | None = None,
+        floor_data: FloorData | None = None,
         enemies: list[tuple[Enemy, SimpleAI]] | None = None,
         controller: PlayerController | None = None,
-        room_id: str = "greybox_arena",
     ) -> None:
         self.player = player
         self.room = room
@@ -87,14 +79,24 @@ class PlaytestScene(Scene):
         self._controller = controller or PlayerController()
         self._aim = AimController(screen_to_world=camera.screen_to_world)
         self._combat = CombatSystem(events=None)
+        self._registry = registry
         self._enemies: list[tuple[Enemy, SimpleAI]] = enemies or []
+        self._floor_data: FloorData | None = None
 
         # Phase 6: Room manager for transitions.
         self._room_manager: RoomManager | None = None
-        if registry is not None:
+        if registry is not None or floor_data is not None:
             self._room_manager = RoomManager(registry=registry)
             self._room_manager.on_transition(self._on_room_transition)
             self._room_manager.current_room = room
+            if floor_data is not None:
+                self._floor_data = floor_data
+                self._room_manager._floor_data = floor_data  # noqa: SLF001
+                self._room_manager._rooms = dict(floor_data.rooms)  # noqa: SLF001
+            else:
+                self._floor_data = None
+
+    # -- Room transition callback --
 
     def _on_room_transition(
         self, new_room: Room, spawn_x: float, spawn_y: float
@@ -105,6 +107,37 @@ class PlaytestScene(Scene):
         self.player.body.teleport(spawn_x, spawn_y)
         self.camera.center_on(spawn_x, spawn_y)
         self.camera.set_bounds(self.room.bounds)
+
+        # Spawn enemies for the new room based on its kind.
+        self._spawn_room_enemies()
+
+    def _spawn_room_enemies(self) -> None:
+        """Spawn enemies for the current room based on its kind."""
+        # Clear existing enemies.
+        self._enemies.clear()
+
+        if self._registry is None:
+            return
+
+        kind = self.room.kind
+
+        # Combat rooms get 2 greybox dummies.
+        if kind == "combat":
+            self._enemies = [
+                build_enemy(
+                    self._registry, "greybox_dummy",
+                    x=self.room.player_spawn[0] + 200.0,
+                    y=self.room.player_spawn[1] - 60.0,
+                ),
+                build_enemy(
+                    self._registry, "greybox_dummy",
+                    x=self.room.player_spawn[0] + 200.0,
+                    y=self.room.player_spawn[1] + 60.0,
+                ),
+            ]
+        # Start and boss rooms have no enemies for now.
+
+    # -- Lifecycle --
 
     def enter(self) -> None:
         spawn_x, spawn_y = self.room.player_spawn
@@ -203,13 +236,12 @@ class PlaytestScene(Scene):
             hits = self._combat.resolve_hits(enemy_hitboxes, player_entity)
             for hit in hits:
                 if hit.result.dealt > 0:
-                    # Player took damage → apply hitstun (if not mid-dodge).
                     self.player.set_hitstun(0.15)
                     self.player.on_hit(0.15)
                     if self.player.health <= 0.0:
                         self.player.die()
 
-        # Check room transition (Phase 6).
+        # Check room transition.
         if self._room_manager is not None:
             door = self._room_manager.check_transition(self.player.body.box)
             if door is not None:
@@ -232,13 +264,11 @@ class PlaytestScene(Scene):
             renderer.draw_rect(
                 self.camera.screen_rect(enemy.body.box), color
             )
-            # Enemy hurtbox outline.
             hurtbox_aabb = enemy.hurtbox.box_at(enemy.body.x, enemy.body.y)
             renderer.draw_rect(
                 self.camera.screen_rect(hurtbox_aabb),
                 _ENEMY_HURTBOX_ALPHA,
             )
-            # Enemy health bar.
             health_ratio = enemy.health / enemy.config.max_health
             bar_x = enemy.body.x - _HEALTH_BAR_WIDTH / 2.0
             bar_y = enemy.body.y - _HEALTH_BAR_ENEMY_Y_OFFSET
@@ -254,7 +284,6 @@ class PlaytestScene(Scene):
                     self.camera.screen_rect(fg_rect), _HEALTH_BAR_FG
                 )
 
-            # Enemy attack hitbox.
             hitbox_aabb = enemy.hitbox_aabb
             if hitbox_aabb is not None:
                 renderer.draw_rect(
@@ -268,7 +297,7 @@ class PlaytestScene(Scene):
             color = _INVULNERABLE_TINT
         renderer.draw_rect(self.camera.screen_rect(self.player.body.box), color)
 
-        # Player attack hitbox (uses raw 360° aim_vector).
+        # Player attack hitbox (raw 360° aim_vector).
         if self.player.attack_executor.hitbox_active():
             aim_x, aim_y = self.player.aim_vector
             hitbox_aabb = self.player.attack_executor.hitbox_for(

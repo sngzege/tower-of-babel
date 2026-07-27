@@ -120,4 +120,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
  - `tests/unit/enemies/test_enemy.py` — enemy entity (15), AI (5), factory (2),
    combat resolution (5).
  - Tools: `tools/verify_combat.py` — headless end-to-end combat verification
- script.
+script.
+
+### Added (Phase 6 — Room/Dungeon Foundation, 2026-07-28)
+
+- FloorAssembler (`src/world/floor_assembler.py`): converts FloorGraph →
+  FloorData with all rooms wired by graph links. Template selection by
+  node kind (start→greybox_start, combat→greybox_room, boss→greybox_exit).
+  Unknown kinds fall back to combat template.
+- FloorData dataclass: `rooms`, `start_room_id`, `exit_room_id`,
+  `connections` map for traversal.
+- RoomManager extended: supports floor mode (`load_floor(floor_data)`)
+  with pre-loaded rooms in addition to registry mode.
+- Room templates: `greybox_start` (start kind, right door only),
+  `greybox_room` (combat kind, left+right doors, interior obstacles),
+  `greybox_exit` (boss kind, left door only, solid right wall).
+- PlaytestScene floor mode: accepts FloorData, transitions between rooms,
+  spawns enemies per room kind (combat → 2 dummies, start/boss → none).
+- `main.py` rewritten: generates seeded FloorGraph → assembles floor →
+  starts scene with floor data. `--seed` argument for reproducibility.
+- 10 new tests (suite: 246 passed + 1 skip):
+  - `tests/unit/test_floor_assembly.py` — floor assembly integrity,
+    door validity, reachability, determinism (10 tests).
