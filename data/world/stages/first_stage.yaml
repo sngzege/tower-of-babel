@@ -1,0 +1,11 @@
+# First Stage (Greybox) — Phase 7 procedural generation.
+# This is a PROVISIONAL placeholder for development purposes only.
+# Not a balance or content decision.
+id: first_stage
+name: First Stage (Greybox)
+index: 0
+floors:
+  count: 3
+  min_rooms: 4
+  max_rooms: 7
+tags: [greybox, placeholder]
