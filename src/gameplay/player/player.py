@@ -120,6 +120,7 @@ class Player:
         self._machine = build_player_state_machine()
         self._dodge_elapsed = 0.0
         self._dodge_direction: tuple[float, float] = (0.0, 1.0)
+        self._hitstun_remaining: float = 0.0
         self._iframe_remaining = 0.0
 
     # -- Properties: aim / facing / direction separation --
@@ -176,7 +177,7 @@ class Player:
         self.attack_executor.update(dt)
 
         if self.state is PlayerState.HIT:
-            pass  # placeholder: hit-stun arrives with combat (Phase 4).
+            self._update_hit(intent, dt)
         elif self.state is PlayerState.DODGE:
             self._update_dodge(intent, dt)
         else:
@@ -251,6 +252,19 @@ class Player:
             else:
                 self._set_state(PlayerState.IDLE)
 
+    def _update_hit(self, intent: PlayerIntent, dt: float) -> None:
+        """Hitstun: no input response. Once timer expires, return to move/idle."""
+        self._hitstun_remaining = max(0.0, self._hitstun_remaining - dt)
+        self.body.vx = 0.0
+        self.body.vy = 0.0
+        if self._hitstun_remaining <= 0.0:
+            if self.state is PlayerState.DEAD:
+                return
+            if intent.wish_x != 0.0 or intent.wish_y != 0.0:
+                self._set_state(PlayerState.MOVE)
+            else:
+                self._set_state(PlayerState.IDLE)
+
     def _set_state(self, state: PlayerState) -> None:
         if self.state is state:
             return
@@ -272,8 +286,9 @@ class Player:
         self.status_manager.clear()
         self._aim_vector = (0.0, 1.0)
         self._movement_direction = None
-        self._machine.set_state(PlayerState.IDLE.value)
         self._dodge_elapsed = 0.0
+        self._hitstun_remaining = 0.0
+        self._set_state(PlayerState.IDLE)
 
     @property
     def alive(self) -> bool:
@@ -283,3 +298,34 @@ class Player:
     def invulnerable(self) -> bool:
         """True while any invulnerability source is active (dodge, hitstun, etc.)."""
         return self.invuln_service.invulnerable
+
+    # -- Hitstun timer --
+
+    def set_hitstun(self, duration: float) -> None:
+        """Set a hitstun timer that keeps the player in HIT state.
+
+        The player processes this in _update_hit(), which returns to
+        IDLE/MOVE once the timer expires.
+        """
+        self._hitstun_remaining = duration
+
+    # -- Combat reactions --
+
+    def on_hit(self, hitstun_duration: float = 0.15) -> None:
+        """Called when the player takes damage from an attack.
+
+        Transitions to HIT state (skipped if dead or mid-dodge).
+        Refreshes the hitstun timer even if already in HIT state.
+        The caller should also check if health <= 0 and call die().
+        """
+        if self.state is PlayerState.DEAD or self.state is PlayerState.DODGE:
+            return
+        if self.state is not PlayerState.HIT:
+            self._set_state(PlayerState.HIT)
+        self.set_hitstun(hitstun_duration)
+
+    def die(self) -> None:
+        """Handle player death."""
+        if self.state is PlayerState.DEAD:
+            return
+        self._set_state(PlayerState.DEAD)

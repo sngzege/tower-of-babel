@@ -51,7 +51,13 @@ def _build_scene() -> PlaytestScene:
     spawn_x, spawn_y = room.player_spawn
     player = Player(stats=stats, x=spawn_x, y=spawn_y)
     camera = Camera(VIEWPORT, zoom=2.0, follow_stiffness=8.0, bounds=room.bounds)
-    scene = PlaytestScene(player=player, room=room, world=world, camera=camera)
+    scene = PlaytestScene(
+        player=player,
+        room=room,
+        world=world,
+        camera=camera,
+        enemies=[],
+    )
     scene.enter()
     return scene
 

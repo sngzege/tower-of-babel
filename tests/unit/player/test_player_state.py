@@ -46,11 +46,12 @@ def test_illegal_transition_raises() -> None:
         machine.set_state(PlayerState.IDLE.value)  # self-transition not listed
 
 
-def test_dead_is_terminal() -> None:
+def test_dead_is_recoverable_by_reset() -> None:
+    """DEAD → IDLE is now allowed (player reset after death)."""
     machine = build_player_state_machine()
     machine.set_state(PlayerState.DEAD.value)
-    with pytest.raises(ValueError, match="not allowed"):
-        machine.set_state(PlayerState.IDLE.value)
+    machine.set_state(PlayerState.IDLE.value)
+    assert machine.current == PlayerState.IDLE.value
 
 
 def test_transition_table_covers_live_states() -> None:

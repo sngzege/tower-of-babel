@@ -90,5 +90,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Data/schema: `data/player/stats.yaml` gains `dodge_max_charges`; schema
   `data/schemas/player.schema.yaml` updated accordingly.
 - Tests added: 18 new tests in `test_dodge_charges.py` (10 charge scenarios),
-  `test_aim.py` (10 aim/movement/facing tests), plus `test_player_dodge.py`
-  updated for facing independence. Suite: 163 passed + 1 skip.
+ `test_aim.py` (10 aim/movement/facing tests), plus `test_player_dodge.py`
+ updated for facing independence. Suite: 163 passed + 1 skip.
+
+ ### Added (Phase 5 — Enemy Foundation, 2026-07-27)
+
+ - Enemy entity (`src/gameplay/enemies/enemy.py`): composition root with
+ `KinematicBody`, `Hurtbox` (ENEMY_HURTBOX layer), health property synced to
+ alive state, `InvulnerabilityService`, `StatusEffectManager`, `AttackExecutor`.
+ Config parsed from data documents via `EnemyConfig.from_document()`.
+ - SimpleAI (`src/gameplay/enemies/enemy_ai.py`): state machine
+ (IDLE/CHASE/ATTACK/DEAD), facing tracking, aggro range, attack range checks,
+ velocity control per AI state. Framework-extensible architecture.
+ - EnemyFactory (`src/gameplay/enemies/enemy_factory.py`): builds Enemy + SimpleAI
+ from `ContentRegistry` data documents. `register_enemy_hook` for per-type
+ customization.
+ - Data: `data/enemies/common/greybox_dummy.yaml` — greybox training dummy
+ (health 50, damage 10, speed 60, chase+attack AI).
+ - PlaytestScene wired for combat: `CombatSystem.resolve_hits()` called every
+ frame for both player→enemy and enemy→player. Enemy rendering (tinted rect,
+ health bar, attack hitbox). Two dummies spawned at fixed positions.
+ - Player combat reactions: `on_hit()`, `die()`, `set_hitstun()` methods.
+ `_update_hit()` state handler with timer-based recovery.
+ DEAD→IDLE transition allowed in player state machine (for reset after death).
+ - 360-degree attack fix: `PlaytestScene` now passes raw `player.aim_vector`
+ (continuous) instead of `pose.facing.vector` (Direction8 quantized) to
+ `AttackExecutor.hitbox_for()`.
+ - 27 new tests (suite: 236 passed + 1 skip):
+ - `tests/unit/enemies/test_enemy.py` — enemy entity (15), AI (5), factory (2),
+   combat resolution (5).
+ - Tools: `tools/verify_combat.py` — headless end-to-end combat verification
+ script.

@@ -15,6 +15,7 @@ from core.constants import LOGS_DIR
 from core.content_registry import ContentRegistry
 from core.data_loader import load_category
 from engine.game import Game
+from gameplay.enemies.enemy_factory import build_enemy
 from gameplay.player.player import Player
 from gameplay.player.player_stats import PlayerStats
 from gameplay.playtest_scene import PlaytestScene
@@ -77,8 +78,20 @@ def main(argv: list[str] | None = None) -> int:
         follow_stiffness=float(camera_config.get("follow_stiffness", 8.0)),
         bounds=room.bounds,
     )
+    # Phase 5: greybox enemies.
+    enemies = [
+        build_enemy(registry, "greybox_dummy", x=400.0, y=200.0),
+        build_enemy(registry, "greybox_dummy", x=560.0, y=400.0),
+    ]
+
     game.register_scene(
-        PlaytestScene(player=player, room=room, world=world, camera=camera),
+        PlaytestScene(
+            player=player,
+            room=room,
+            world=world,
+            camera=camera,
+            enemies=enemies,
+        ),
         initial=True,
     )
     game.run(max_frames=args.frames)

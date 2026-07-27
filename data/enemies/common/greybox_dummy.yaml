@@ -1,0 +1,33 @@
+# Greybox training dummy (Phase 5 — technical combat target).
+# This is NOT a production enemy. Exists to test the combat pipeline:
+# player can damage it, it can damage the player, it can die.
+# Tuning is PROVISIONAL — not a balance decision.
+id: greybox_dummy
+name: Greybox Training Dummy
+family: greybox
+role: dummy
+tags: [greybox, dummy, placeholder]
+stats:
+  health: 50
+  damage: 10
+  speed: 60.0
+body:
+  width: 24.0
+  height: 24.0
+hurtbox:
+  width: 22.0
+  height: 22.0
+  offset_x: 0.0
+  offset_y: 0.0
+attack:
+  windup: 0.2
+  active: 0.3
+  recovery: 0.15
+  cooldown: 1.5
+  damage: 10.0
+  damage_types: [physical]
+  hitbox_spread: 18.0
+  hitbox_reach: 20.0
+  min_range: 20.0        # stop chasing when within this distance from player
+  ideal_range: 28.0      # desired attack distance
+aggro_range: 200.0       # start chasing when player is within this distance

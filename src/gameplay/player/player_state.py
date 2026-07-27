@@ -35,7 +35,7 @@ ALLOWED_TRANSITIONS: dict[PlayerState, frozenset[PlayerState]] = {
         {PlayerState.IDLE, PlayerState.MOVE, PlayerState.HIT, PlayerState.DEAD}
     ),
     PlayerState.HIT: frozenset({PlayerState.IDLE, PlayerState.MOVE, PlayerState.DEAD}),
-    PlayerState.DEAD: frozenset(),
+    PlayerState.DEAD: frozenset({PlayerState.IDLE}),
 }
 
 
