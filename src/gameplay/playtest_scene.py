@@ -1,9 +1,11 @@
 """Greybox playtest scene: greybox playable slice with combat and
-Phase 6 floor assembly integration.
+Phase 7 multi-floor stage traversal.
 
-Supports both single-room mode (legacy) and floor-traversal mode.
-In floor mode, the scene accepts a FloorData from the FloorAssembler
-and lets the player traverse the connected rooms.
+Supports both single-room mode (legacy) and stage mode.
+In stage mode, the scene is driven by a StageManager: the player traverses
+the connected rooms of each floor, and floor exits advance to the next
+floor until the stage is complete. Enemy population comes from the
+assembled floor data (encounters + template spawn points), not hardcoded.
 """
 
 from __future__ import annotations
@@ -27,9 +29,11 @@ from input.input_manager import ActionFrame
 from physics.collision import AABB, CollisionWorld
 from rendering.camera import Camera
 from rendering.renderer import Color, Renderer
-from world.floor_assembler import FloorData
+from utils.logger import get_logger
 from world.room import Room
-from world.room_manager import RoomManager
+from world.stage_manager import StageManager
+
+_logger = get_logger(__name__)
 
 _FLOOR_COLOR: Color = (34, 34, 40)
 _WALL_COLOR: Color = (92, 92, 112)
@@ -56,6 +60,21 @@ _STATE_COLORS: dict[PlayerState, Color] = {
 _INVULNERABLE_TINT: Color = (255, 255, 255)
 
 
+def _fallback_enemy_spawns(room: Room) -> list[tuple[float, float]]:
+    """Default enemy spawn points when a template defines none.
+
+    A small deterministic ring right of the room center; used only when a
+    room with an encounter has no explicit ``enemy_spawns``.
+    """
+    center_x = room.width / 2.0
+    center_y = room.height / 2.0
+    return [
+        (center_x + 160.0, center_y - 60.0),
+        (center_x + 160.0, center_y + 60.0),
+        (center_x + 260.0, center_y),
+    ]
+
+
 class PlaytestScene(Scene):
     """Playable greybox room: move, dodge, collide, camera follow, aim, attack."""
 
@@ -68,7 +87,7 @@ class PlaytestScene(Scene):
         world: CollisionWorld,
         camera: Camera,
         registry: ContentRegistry | None = None,
-        floor_data: FloorData | None = None,
+        stage_manager: StageManager | None = None,
         enemies: list[tuple[Enemy, SimpleAI]] | None = None,
         controller: PlayerController | None = None,
     ) -> None:
@@ -81,61 +100,61 @@ class PlaytestScene(Scene):
         self._combat = CombatSystem(events=None)
         self._registry = registry
         self._enemies: list[tuple[Enemy, SimpleAI]] = enemies or []
-        self._floor_data: FloorData | None = None
+        self.stage_completed = False
 
-        # Phase 6: Room manager for transitions.
-        self._room_manager: RoomManager | None = None
-        if registry is not None or floor_data is not None:
-            self._room_manager = RoomManager(registry=registry)
-            self._room_manager.on_transition(self._on_room_transition)
-            self._room_manager.current_room = room
-            if floor_data is not None:
-                self._floor_data = floor_data
-                self._room_manager._floor_data = floor_data  # noqa: SLF001
-                self._room_manager._rooms = dict(floor_data.rooms)  # noqa: SLF001
-            else:
-                self._floor_data = None
+        # Phase 7: Stage manager for room/floor transitions.
+        self._stage_manager = stage_manager
+        if stage_manager is not None:
+            stage_manager.on_transition(self._on_room_transition)
+            stage_manager.on_stage_complete(self._on_stage_complete)
 
-    # -- Room transition callback --
+    @property
+    def enemies(self) -> tuple[tuple[Enemy, SimpleAI], ...]:
+        """The enemies currently populating the room (read-only view)."""
+        return tuple(self._enemies)
+
+    # -- Room/floor transition callbacks --
 
     def _on_room_transition(
         self, new_room: Room, spawn_x: float, spawn_y: float
     ) -> None:
-        """Callback fired when the player walks through a door."""
+        """Callback fired when the player walks through a door or floor exit."""
         self.room = new_room
         self.world = new_room.build_collision_world()
         self.player.body.teleport(spawn_x, spawn_y)
         self.camera.center_on(spawn_x, spawn_y)
         self.camera.set_bounds(self.room.bounds)
 
-        # Spawn enemies for the new room based on its kind.
+        # Spawn enemies for the new room from the floor's encounter data.
         self._spawn_room_enemies()
 
+    def _on_stage_complete(self) -> None:
+        """Callback fired once when the final floor exit is reached."""
+        self.stage_completed = True
+        _logger.info("Stage complete — the greybox stage exit was reached")
+
     def _spawn_room_enemies(self) -> None:
-        """Spawn enemies for the current room based on its kind."""
-        # Clear existing enemies.
+        """Populate the current room from its assembled encounter data."""
         self._enemies.clear()
 
-        if self._registry is None:
+        if self._registry is None or self._stage_manager is None:
             return
 
-        kind = self.room.kind
+        encounter = self._stage_manager.current_floor.encounters.get(
+            self.room.room_id, ()
+        )
+        if not encounter:
+            return
 
-        # Combat rooms get 2 greybox dummies.
-        if kind == "combat":
-            self._enemies = [
-                build_enemy(
-                    self._registry, "greybox_dummy",
-                    x=self.room.player_spawn[0] + 200.0,
-                    y=self.room.player_spawn[1] - 60.0,
-                ),
-                build_enemy(
-                    self._registry, "greybox_dummy",
-                    x=self.room.player_spawn[0] + 200.0,
-                    y=self.room.player_spawn[1] + 60.0,
-                ),
-            ]
-        # Start and boss rooms have no enemies for now.
+        spawn_points = list(self.room.enemy_spawns) or _fallback_enemy_spawns(self.room)
+        index = 0
+        for enemy_id, count in encounter:
+            for _ in range(count):
+                x, y = spawn_points[index % len(spawn_points)]
+                self._enemies.append(
+                    build_enemy(self._registry, enemy_id, x=x, y=y)
+                )
+                index += 1
 
     # -- Lifecycle --
 
@@ -241,11 +260,11 @@ class PlaytestScene(Scene):
                     if self.player.health <= 0.0:
                         self.player.die()
 
-        # Check room transition.
-        if self._room_manager is not None:
-            door = self._room_manager.check_transition(self.player.body.box)
+        # Check room/floor transition.
+        if self._stage_manager is not None:
+            door = self._stage_manager.check_transition(self.player.body.box)
             if door is not None:
-                self._room_manager.transition(door)
+                self._stage_manager.transition(door)
 
         self.camera.follow(self.player.body.x, self.player.body.y, dt)
 

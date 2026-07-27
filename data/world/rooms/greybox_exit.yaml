@@ -1,5 +1,6 @@
-# Greybox exit room (Phase 6 floor assembly).
-# End of the floor — entry from the left, no exit on the right.
+# Greybox exit room (Phase 6 floor assembly, Phase 7 floor-exit door).
+# End of the floor — entry from the left, floor exit on the right.
+# The right door's target is set to the floor-exit sentinel by FloorAssembler.
 id: greybox_exit
 kind: boss
 name: Greybox Exit Room
@@ -13,7 +14,8 @@ solids:
   - {x: 0,   y: 592, w: 960, h: 16}    # bottom
   - {x: 0,   y: 16,  w: 16,  h: 240}   # left wall top
   - {x: 0,   y: 352, w: 16,  h: 240}   # left wall bottom
-  - {x: 944, y: 16,  w: 16,  h: 576}   # right wall (solid — no exit)
+  - {x: 944, y: 16,  w: 16,  h: 240}   # right wall top
+  - {x: 944, y: 352, w: 16,  h: 240}   # right wall bottom
   # Exit marker.
   - {x: 860, y: 280, w: 16,  h: 48}    # right-side pillar
 doors:
@@ -24,4 +26,12 @@ doors:
     h: 96
     target_room: ""
     spawn_x: 928
+    spawn_y: 304
+  # Right door — floor exit (assembler points it at the next floor).
+  - x: 944
+    y: 256
+    w: 16
+    h: 96
+    target_room: ""
+    spawn_x: 80
     spawn_y: 304

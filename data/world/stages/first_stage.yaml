@@ -8,4 +8,7 @@ floors:
   count: 3
   min_rooms: 4
   max_rooms: 7
+  # Spine-only greybox floors: side branches need templates with more door
+  # slots than the current left/right greybox set, so branches are disabled.
+  branch_chance: 0.0
 tags: [greybox, placeholder]

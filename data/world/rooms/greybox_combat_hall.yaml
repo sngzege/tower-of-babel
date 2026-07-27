@@ -1,8 +1,9 @@
-# Greybox generic combat room (Phase 6 floor assembly).
-# Has both left and right door openings for through-traversal.
-id: greybox_room
+# Greybox combat room — open hall (Phase 7 template variety).
+# Left+right doors for through-traversal; top/bottom rails shape the fight
+# into a wide corridor. Encounter: 2 greybox dummies.
+id: greybox_combat_hall
 kind: combat
-name: Greybox Combat Room
+name: Greybox Combat Hall
 tags: [greybox, playtest]
 weight: 0
 min_depth: 0
@@ -15,18 +16,15 @@ solids:
   - {x: 0,   y: 352, w: 16,  h: 240}   # left wall bottom
   - {x: 944, y: 16,  w: 16,  h: 240}   # right wall top
   - {x: 944, y: 352, w: 16,  h: 240}   # right wall bottom
-  # Interior obstacles.
-  - {x: 240, y: 160, w: 64,  h: 64}
-  - {x: 656, y: 384, w: 64,  h: 64}
-  - {x: 464, y: 128, w: 32,  h: 32}
-  - {x: 464, y: 448, w: 32,  h: 32}
-# Phase 7: template-level encounter (2 dummies) + spawn points.
+  # Corridor rails.
+  - {x: 160, y: 96,  w: 640, h: 16}    # top rail
+  - {x: 160, y: 496, w: 640, h: 16}    # bottom rail
 encounter:
   - {enemy: greybox_dummy, count: 2}
 enemy_spawns:
-  - {x: 680, y: 240}
-  - {x: 680, y: 368}
-  - {x: 520, y: 304}
+  - {x: 640, y: 240}
+  - {x: 640, y: 368}
+  - {x: 480, y: 200}
 doors:
   # Left door — entry from previous room (target set by assembler).
   - x: 0

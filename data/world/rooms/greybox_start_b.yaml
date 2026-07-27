@@ -1,0 +1,28 @@
+# Greybox start room variant B (Phase 7 template variety).
+# Entry point for the floor — exit on the right side, staggered walls force
+# an S-shaped path through the room.
+id: greybox_start_b
+kind: start
+name: Greybox Start Room B
+tags: [greybox, playtest]
+weight: 0
+min_depth: 0
+size: {width: 960, height: 608}
+player_spawn: {x: 480, y: 304}
+solids:
+  - {x: 0,   y: 0,   w: 960, h: 16}    # top
+  - {x: 0,   y: 592, w: 960, h: 16}    # bottom
+  - {x: 0,   y: 16,  w: 16,  h: 576}   # left
+  - {x: 944, y: 16,  w: 16,  h: 240}   # right wall top
+  - {x: 944, y: 352, w: 16,  h: 240}   # right wall bottom
+  # Staggered interior walls (S-path).
+  - {x: 320, y: 16,  w: 16,  h: 200}   # hanging wall (gap below)
+  - {x: 624, y: 392, w: 16,  h: 200}   # rising wall (gap above)
+doors:
+  - x: 944
+    y: 256
+    w: 16
+    h: 96
+    target_room: ""       # set by FloorAssembler
+    spawn_x: 80
+    spawn_y: 304

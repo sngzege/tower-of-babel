@@ -18,7 +18,11 @@ import pytest
 from core.content_registry import ContentRegistry
 from core.data_loader import load_category
 from world.dungeon_generator import generate_floor_graph
-from world.floor_assembler import FloorData, assemble_floor
+from world.floor_assembler import (
+    FLOOR_EXIT_TARGET,
+    FloorData,
+    assemble_floor,
+)
 
 # Resolve data directory relative to this test file.
 _DATA_DIR = Path(__file__).resolve().parents[2] / "data"
@@ -69,14 +73,14 @@ def test_start_room_has_player_spawn(registry: ContentRegistry) -> None:
 
 
 def test_all_doors_target_valid_rooms(registry: ContentRegistry) -> None:
-    """Every door must target a room that exists in the floor."""
+    """Every door must target a room in the floor (or the floor exit)."""
     graph = generate_floor_graph(42, config={"min_rooms": 4, "max_rooms": 6})
     floor = assemble_floor(graph, registry)
     for room_id, room in floor.rooms.items():
         for door in room.doors:
-            assert door.target_room in floor.rooms, (
-                f"Door in {room_id} targets non-existent '{door.target_room}'"
-            )
+            assert door.target_room in floor.rooms or (
+                door.target_room == FLOOR_EXIT_TARGET
+            ), f"Door in {room_id} targets non-existent '{door.target_room}'"
 
 
 def test_start_room_reachable(registry: ContentRegistry) -> None:
@@ -168,11 +172,12 @@ def test_20_seeds_produce_valid_floors(registry: ContentRegistry) -> None:
         assert floor.start_room_id in floor.rooms, f"Seed {seed}: no start"
         assert floor.exit_room_id in floor.rooms, f"Seed {seed}: no exit"
 
-        # All doors target valid rooms.
+        # All doors target valid rooms (or the floor exit sentinel).
         for room_id, room in floor.rooms.items():
             for door in room.doors:
-                assert door.target_room in floor.rooms, \
-                    f"Seed {seed}: door in {room_id} targets missing {door.target_room}"
+                assert door.target_room in floor.rooms or (
+                    door.target_room == FLOOR_EXIT_TARGET
+                ), f"Seed {seed}: door in {room_id} targets missing {door.target_room}"
 
         # All rooms have valid player spawns.
         for room_id, room in floor.rooms.items():
@@ -189,3 +194,81 @@ def test_same_seed_same_template_selection(registry: ContentRegistry) -> None:
     floor_a = assemble_floor(graph, registry, seed=42)
     floor_b = assemble_floor(graph, registry, seed=42)
     assert set(floor_a.rooms) == set(floor_b.rooms)
+    assert floor_a.templates == floor_b.templates
+
+
+# -- Phase 7: floor exit + encounters --
+
+def test_exit_room_has_floor_exit_door(registry: ContentRegistry) -> None:
+    """The exit room must always have a door targeting the floor exit."""
+    for seed in range(1, 11):
+        graph = generate_floor_graph(seed, config={"min_rooms": 3, "max_rooms": 8})
+        floor = assemble_floor(graph, registry, seed=seed)
+        exit_room = floor.rooms[floor.exit_room_id]
+        targets = [door.target_room for door in exit_room.doors]
+        assert FLOOR_EXIT_TARGET in targets, f"Seed {seed}: no floor-exit door"
+
+
+def test_only_exit_room_has_floor_exit_door(registry: ContentRegistry) -> None:
+    """Non-exit rooms must never target the floor exit."""
+    graph = generate_floor_graph(42, config={"min_rooms": 4, "max_rooms": 8})
+    floor = assemble_floor(graph, registry)
+    for room_id, room in floor.rooms.items():
+        if room_id == floor.exit_room_id:
+            continue
+        for door in room.doors:
+            assert door.target_room != FLOOR_EXIT_TARGET
+
+
+def test_template_encounter_overrides_kind_default(
+    registry: ContentRegistry,
+) -> None:
+    """Templates with an explicit encounter key define their own population."""
+    graph = generate_floor_graph(
+        42, config={"min_rooms": 4, "max_rooms": 4, "branch_chance": 0.0}
+    )
+    floor = assemble_floor(
+        graph,
+        registry,
+        kind_to_templates={
+            "start": ["greybox_start"],
+            "combat": ["greybox_combat_pillars"],
+            "boss": ["greybox_exit"],
+        },
+    )
+    for room_id, room in floor.rooms.items():
+        if room.kind == "combat":
+            assert floor.encounters[room_id] == (("greybox_dummy", 3),)
+
+
+def test_kind_default_encounter_when_template_has_none(
+    registry: ContentRegistry,
+) -> None:
+    """Templates without an encounter key fall back to the kind default."""
+    graph = generate_floor_graph(
+        42, config={"min_rooms": 3, "max_rooms": 3, "branch_chance": 0.0}
+    )
+    floor = assemble_floor(
+        graph,
+        registry,
+        kind_to_templates={
+            "start": ["greybox_start"],
+            "combat": ["greybox_start"],  # no encounter key on this template
+            "boss": ["greybox_exit"],
+        },
+        kind_to_enemies={"combat": [("greybox_dummy", 1)]},
+    )
+    # 3-room spine: room_0 = start node, room_1 = combat node, room_2 = boss.
+    assert floor.encounters["room_0"] == ()
+    assert floor.encounters["room_1"] == (("greybox_dummy", 1),)
+    assert floor.encounters["room_2"] == ()
+
+
+def test_start_and_exit_rooms_have_no_encounters(
+    registry: ContentRegistry,
+) -> None:
+    """Start and exit rooms stay unpopulated in the greybox stage."""
+    graph = generate_floor_graph(42, config={"min_rooms": 4, "max_rooms": 7})
+    floor = assemble_floor(graph, registry)
+    assert floor.encounters[floor.start_room_id] == ()
+    assert floor.encounters[floor.exit_room_id] == ()

@@ -1,8 +1,10 @@
-"""Application entry point (Phase 6: greybox floor traversal).
+"""Application entry point (Phase 7: data-driven multi-floor stage).
 
-Loads configuration and content, builds a floor from the FloorGraph prototype
-and FloorAssembler, and runs the engine loop. The ``--headless``/``--frames``
-flags keep automated smoke tests possible.
+Loads configuration and content, parses the requested stage document from
+the ContentRegistry, generates the full stage (seeded, deterministic), and
+runs the engine loop. The stage structure is never hardcoded here — it
+comes from data/world/stages/*.yaml through the data-driven pipeline.
+The ``--headless``/``--frames`` flags keep automated smoke tests possible.
 """
 
 from __future__ import annotations
@@ -20,24 +22,31 @@ from gameplay.playtest_scene import PlaytestScene
 from rendering.camera import Camera
 from utils.config_loader import ConfigLoader
 from utils.logger import get_logger, setup_logging
-from world.dungeon_generator import generate_floor_graph
-from world.floor_assembler import assemble_floor
+from world.stage import StageConfig
+from world.stage_generator import generate_stage
+from world.stage_manager import StageManager
 
 _logger = get_logger(__name__)
 
 CONTENT_CATEGORIES = ("player", "weapons", "items", "enemies", "loot", "world")
 PLAYER_STATS_ID = "player_base"
+DEFAULT_STAGE_ID = "first_stage"
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Project bootstrap (Phase 6).")
+    parser = argparse.ArgumentParser(description="Project bootstrap (Phase 7).")
     parser.add_argument("--log-level", default="INFO")
     parser.add_argument("--frames", type=int, default=None, help="stop after N frames")
     parser.add_argument(
         "--headless", action="store_true", help="use the dummy SDL video driver"
     )
     parser.add_argument(
-        "--seed", type=int, default=42, help="floor generation seed"
+        "--seed", type=int, default=42, help="stage generation seed"
+    )
+    parser.add_argument(
+        "--stage",
+        default=DEFAULT_STAGE_ID,
+        help="stage content id from data/world/stages",
     )
     args = parser.parse_args(argv)
 
@@ -45,7 +54,7 @@ def main(argv: list[str] | None = None) -> int:
         os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
     setup_logging(args.log_level, LOGS_DIR / "game.log")
-    _logger.info("Bootstrap starting (seed=%s)", args.seed)
+    _logger.info("Bootstrap starting (stage=%s, seed=%s)", args.stage, args.seed)
 
     config = ConfigLoader()
     registry = ContentRegistry()
@@ -61,20 +70,19 @@ def main(argv: list[str] | None = None) -> int:
 
     game = Game(config=config, vsync=False if args.headless else None)
 
-    # Generate a floor graph and assemble it into playable rooms.
-    # Uses the seeded RNG prototype from Phase 1 — deterministic per seed.
-    floor_graph = generate_floor_graph(args.seed)
-
+    # Load the stage definition from data and generate every floor.
+    stage_config = StageConfig.from_document(registry.get("world", args.stage))
+    stage_data = generate_stage(stage_config, registry, seed=args.seed)
     _logger.info(
-        "Floor graph: %d rooms, start=%d, boss=%d",
-        len(floor_graph.rooms),
-        floor_graph.start_uid,
-        floor_graph.boss_uid,
+        "Stage '%s': %d floor(s), rooms per floor: %s",
+        stage_config.stage_id,
+        stage_data.floor_count,
+        [len(floor.rooms) for floor in stage_data.floors],
     )
 
-    floor_data = assemble_floor(floor_graph, registry, seed=args.seed)
+    stage_manager = StageManager(stage_data)
+    start_room = stage_manager.start()
 
-    start_room = floor_data.rooms[floor_data.start_room_id]
     world = start_room.build_collision_world()
     spawn_x, spawn_y = start_room.player_spawn
     player = Player(stats=PlayerStats.from_document(
@@ -96,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
             world=world,
             camera=camera,
             registry=registry,
-            floor_data=floor_data,
+            stage_manager=stage_manager,
         ),
         initial=True,
     )

@@ -1,8 +1,9 @@
-# Greybox generic combat room (Phase 6 floor assembly).
-# Has both left and right door openings for through-traversal.
-id: greybox_room
+# Greybox combat room — pillar field (Phase 7 template variety).
+# Left+right doors for through-traversal; four pillars break line of sight.
+# Encounter: 3 greybox dummies (denser than the other combat templates).
+id: greybox_combat_pillars
 kind: combat
-name: Greybox Combat Room
+name: Greybox Combat Pillars
 tags: [greybox, playtest]
 weight: 0
 min_depth: 0
@@ -15,18 +16,18 @@ solids:
   - {x: 0,   y: 352, w: 16,  h: 240}   # left wall bottom
   - {x: 944, y: 16,  w: 16,  h: 240}   # right wall top
   - {x: 944, y: 352, w: 16,  h: 240}   # right wall bottom
-  # Interior obstacles.
-  - {x: 240, y: 160, w: 64,  h: 64}
-  - {x: 656, y: 384, w: 64,  h: 64}
-  - {x: 464, y: 128, w: 32,  h: 32}
-  - {x: 464, y: 448, w: 32,  h: 32}
-# Phase 7: template-level encounter (2 dummies) + spawn points.
+  # Pillar field.
+  - {x: 368, y: 176, w: 32,  h: 32}
+  - {x: 368, y: 400, w: 32,  h: 32}
+  - {x: 560, y: 176, w: 32,  h: 32}
+  - {x: 560, y: 400, w: 32,  h: 32}
 encounter:
-  - {enemy: greybox_dummy, count: 2}
+  - {enemy: greybox_dummy, count: 3}
 enemy_spawns:
-  - {x: 680, y: 240}
-  - {x: 680, y: 368}
-  - {x: 520, y: 304}
+  - {x: 700, y: 200}
+  - {x: 700, y: 408}
+  - {x: 464, y: 304}
+  - {x: 560, y: 280}
 doors:
   # Left door — entry from previous room (target set by assembler).
   - x: 0

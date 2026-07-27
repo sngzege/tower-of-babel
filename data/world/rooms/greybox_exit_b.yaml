@@ -1,8 +1,10 @@
-# Greybox generic combat room (Phase 6 floor assembly).
-# Has both left and right door openings for through-traversal.
-id: greybox_room
-kind: combat
-name: Greybox Combat Room
+# Greybox exit room variant B (Phase 7 template variety).
+# End of the floor — entry from the left, floor exit on the right behind a
+# gate formed by two wall segments. The right door's target is set to the
+# floor-exit sentinel by FloorAssembler.
+id: greybox_exit_b
+kind: boss
+name: Greybox Exit Room B
 tags: [greybox, playtest]
 weight: 0
 min_depth: 0
@@ -15,18 +17,9 @@ solids:
   - {x: 0,   y: 352, w: 16,  h: 240}   # left wall bottom
   - {x: 944, y: 16,  w: 16,  h: 240}   # right wall top
   - {x: 944, y: 352, w: 16,  h: 240}   # right wall bottom
-  # Interior obstacles.
-  - {x: 240, y: 160, w: 64,  h: 64}
-  - {x: 656, y: 384, w: 64,  h: 64}
-  - {x: 464, y: 128, w: 32,  h: 32}
-  - {x: 464, y: 448, w: 32,  h: 32}
-# Phase 7: template-level encounter (2 dummies) + spawn points.
-encounter:
-  - {enemy: greybox_dummy, count: 2}
-enemy_spawns:
-  - {x: 680, y: 240}
-  - {x: 680, y: 368}
-  - {x: 520, y: 304}
+  # Gate before the exit.
+  - {x: 700, y: 128, w: 16,  h: 112}   # gate top segment
+  - {x: 700, y: 368, w: 16,  h: 112}   # gate bottom segment
 doors:
   # Left door — entry from previous room (target set by assembler).
   - x: 0
@@ -36,7 +29,7 @@ doors:
     target_room: ""
     spawn_x: 928
     spawn_y: 304
-  # Right door — exit to next room.
+  # Right door — floor exit (assembler points it at the next floor).
   - x: 944
     y: 256
     w: 16

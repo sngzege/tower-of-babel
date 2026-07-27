@@ -13,6 +13,24 @@ fields:
   min_depth:     {type: int, min: 0, default: 0}
   max_depth:     {type: int, min: 0}
   encounter_ids: {type: list, item: str, default: []}
+  # Phase 7 greybox encounter: list of {enemy, count} entries. When the key is
+  # present on a template it overrides the assembler's kind-based default.
+  encounter:
+    type: list
+    item:
+      type: dict
+      keys:
+        enemy: {type: str, required: true}
+        count: {type: int, min: 1, default: 1}
+  # Spawn points used when the room is populated with enemies.
+  enemy_spawns:
+    type: list
+    default: []
+    item:
+      type: dict
+      keys:
+        x: {type: float, required: true}
+        y: {type: float, required: true}
   size:
     type: dict
     keys:

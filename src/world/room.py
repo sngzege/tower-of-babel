@@ -40,6 +40,10 @@ class Room:
     Phase 6 additions:
       - ``doors``: list of Door objects defining exits to adjacent rooms.
       - ``kind``: room kind for procedural selection (start/combat/boss/...).
+
+    Phase 7 additions:
+      - ``enemy_spawns``: ordered world-space points used when the room's
+        encounter is populated (data-driven; see FloorAssembler).
     """
 
     room_id: str
@@ -49,6 +53,7 @@ class Room:
     player_spawn: tuple[float, float]
     solids: tuple[AABB, ...]
     doors: tuple[Door, ...] = ()
+    enemy_spawns: tuple[tuple[float, float], ...] = ()
 
     @property
     def bounds(self) -> AABB:
@@ -145,6 +150,28 @@ class Room:
                 f"invalid room document '{source}': " + "; ".join(sorted(set(problems)))
             )
 
+        # Parse enemy spawn points (Phase 7 encounter population).
+        raw_spawns = document.get("enemy_spawns", [])
+        if not isinstance(raw_spawns, list):
+            problems.append("'enemy_spawns' must be a list")
+            raw_spawns = []
+        enemy_spawns: list[tuple[float, float]] = []
+        for index, entry in enumerate(raw_spawns):
+            if not isinstance(entry, dict):
+                problems.append(f"'enemy_spawns[{index}]' must be a mapping")
+                continue
+            enemy_spawns.append(
+                (
+                    read_number(entry.get("x"), f"enemy_spawns[{index}].x"),
+                    read_number(entry.get("y"), f"enemy_spawns[{index}].y"),
+                )
+            )
+
+        if problems:
+            raise RoomError(
+                f"invalid room document '{source}': " + "; ".join(sorted(set(problems)))
+            )
+
         kind = str(document.get("kind", "combat"))
 
         return cls(
@@ -155,4 +182,5 @@ class Room:
             player_spawn=(spawn_x, spawn_y),
             solids=tuple(solids),
             doors=tuple(doors),
+            enemy_spawns=tuple(enemy_spawns),
         )
