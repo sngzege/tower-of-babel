@@ -51,7 +51,8 @@ class AttackData:
     ``cooldown`` — minimum seconds before the attack can be triggered again.
     ``damage`` — base damage value.
     ``damage_types`` — type tags for damage pipeline (e.g. 'physical').
-    ``hitbox_width/height/offset`` — hitbox geometry relative to owner center.
+    ``hitbox_spread`` — width perpendicular to the facing direction.
+    ``hitbox_reach`` — length along the facing direction (how far it extends).
     ``knockback_x/y`` — push applied to target on hit.
     ``status_tags`` — status effect tags to apply on hit.
     ``layer`` — which collision layer the temporary hitbox belongs to.
@@ -65,10 +66,8 @@ class AttackData:
     cooldown: float = 0.3
     damage: float = 10.0
     damage_types: frozenset[str] = frozenset({"physical"})
-    hitbox_width: float = 24.0
-    hitbox_height: float = 20.0
-    hitbox_offset_x: float = 0.0
-    hitbox_offset_y: float = 0.0
+    hitbox_spread: float = 16.0  # width perpendicular to facing
+    hitbox_reach: float = 36.0   # length along the facing direction
     knockback_x: float = 0.0
     knockback_y: float = 0.0
     status_tags: frozenset[str] = frozenset()
@@ -164,21 +163,33 @@ class AttackExecutor:
     ) -> AABB | None:
         """Get the world-space hitbox AABB if the hitbox is active.
 
-        The hitbox is offset in the facing direction, so attacks hit
-        in front of the entity.
+        The hitbox is like a spear: it starts near the player and extends
+        ``reach`` pixels in the facing direction, with ``spread`` width
+        perpendicular to the facing. This makes the AABB rotate with aim:
+        facing right -> horizontal rectangle, facing down -> vertical.
         """
         if not self.hitbox_active():
             return None
 
-        # Hitbox center is purely along the facing direction.
-        # No absolute offset — the hitbox follows where you aim.
-        push = self.data.hitbox_height * 0.5
-        center_x = owner_x + facing_x * push
-        center_y = owner_y + facing_y * push
+        spread = self.data.hitbox_spread
+        reach = self.data.hitbox_reach
 
-        return AABB(
-            center_x - self.data.hitbox_width / 2.0,
-            center_y - self.data.hitbox_height / 2.0,
-            self.data.hitbox_width,
-            self.data.hitbox_height,
-        )
+        # Determine dominant axis from facing direction.
+        if abs(facing_x) >= abs(facing_y):
+            # Horizontal-facing: AABB is wide (reach) and short (spread).
+            half_spread = spread / 2.0
+            if facing_x > 0:
+                # Facing RIGHT: hitbox extends to the right.
+                return AABB(owner_x, owner_y - half_spread, reach, spread)
+            else:
+                # Facing LEFT: hitbox extends to the left.
+                return AABB(owner_x - reach, owner_y - half_spread, reach, spread)
+        else:
+            # Vertical-facing: AABB is tall (reach) and narrow (spread).
+            half_spread = spread / 2.0
+            if facing_y > 0:
+                # Facing DOWN: hitbox extends downward.
+                return AABB(owner_x - half_spread, owner_y, spread, reach)
+            else:
+                # Facing UP: hitbox extends upward.
+                return AABB(owner_x - half_spread, owner_y - reach, spread, reach)

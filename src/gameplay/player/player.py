@@ -111,10 +111,8 @@ class Player:
                 cooldown=stats.attack_speed,
                 damage=25.0,
                 damage_types=frozenset({"physical"}),
-                hitbox_width=16.0,
-                hitbox_height=34.0,
-                hitbox_offset_x=0.0,
-                hitbox_offset_y=-12.0,
+                hitbox_spread=16.0,
+                hitbox_reach=36.0,
             )
         )
 

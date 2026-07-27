@@ -14,10 +14,8 @@ fields:
   hitbox:
     type: dict
     keys:
-      width:   {type: float, min: 1.0}
-      height:  {type: float, min: 1.0}
-      offset_x: {type: float}
-      offset_y: {type: float}
+      spread: {type: float, min: 1.0}
+      reach:  {type: float, min: 1.0}
   knockback_x: {type: float, default: 0.0}
   knockback_y: {type: float, default: 0.0}
   status_tags: {type: list, item: str, default: []}
@@ -30,4 +28,4 @@ example:
   cooldown: 0.3
   damage: 10.0
   damage_types: [physical]
-  hitbox: {width: 24.0, height: 20.0, offset_x: 0.0, offset_y: 0.0}
+  hitbox: {spread: 16.0, reach: 36.0}

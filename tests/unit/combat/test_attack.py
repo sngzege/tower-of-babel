@@ -17,8 +17,8 @@ def _attack_data(**overrides) -> AttackData:
         cooldown=0.3,
         damage=25.0,
         damage_types=frozenset({"physical"}),
-        hitbox_width=24.0,
-        hitbox_height=20.0,
+        hitbox_spread=16.0,
+        hitbox_reach=36.0,
     )
     params.update(overrides)
     return AttackData(**params)
@@ -113,14 +113,14 @@ def test_hitbox_for_returns_none_when_not_active() -> None:
 
 def test_hitbox_for_returns_aabb_when_active() -> None:
     exe = AttackExecutor(_attack_data(
-        windup=0.0, active=0.1, hitbox_width=24.0, hitbox_height=20.0
+        windup=0.0, active=0.1, hitbox_spread=14.0, hitbox_reach=30.0
     ))
     exe.trigger()
     exe.update(0.01)
     aabb = exe.hitbox_for(100.0, 100.0, facing_x=1.0, facing_y=0.0)
     assert aabb is not None
-    assert aabb.width == 24.0
-    assert aabb.height == 20.0
+    assert aabb.width == 30.0  # reach mapped to width for horizontal facing
+    assert aabb.height == 14.0  # spread mapped to height
 
 
 def test_full_attack_cycle_returns_to_idle() -> None:
