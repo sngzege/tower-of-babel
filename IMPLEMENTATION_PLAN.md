@@ -15,7 +15,8 @@
 - **Framework DECIDED (2026-07-27): pygame-ce** (docs/development/FRAMEWORK_EVALUATION.md). Design core **LOCKED**: docs/design/DESIGN_DECISIONS.md (L1-L16).
 - **Phase 2 — COMPLETE (2026-07-27):** suite at 81 tests + 1 skip · headless 300-frame run exit 0 · loop order/input mapping/scene switching tested · adapter isolation enforced by test.
 - **Phase 3 — COMPLETE (2026-07-27):** suite at 145 tests + 1 skip · playable greybox slice (move/dodge/collide/camera) · ruff/mypy/data-validation clean · headless 300-frame run exit 0. Details: docs/development/STATUS.md (living handoff file).
-- **Next actionable phase: Phase 4 — COMBAT FOUNDATION** (no blockers; builds on Phase 3 hitbox/hurtbox, i-frame, and state placeholders).
+- **Phase 3.5 — COMPLETE (same commit):** charge-based dodge (reusable DodgeCharges component, data-driven dodge_max_charges + dodge_cooldown), movement/aim/facing split (AimController with mouse-vs-keyboard priority policy), screen_to_world camera inverse, keyboard-only movement (WASD) + arrow aim. Test suite at 163 passed + 1 skip. Details: CHANGELOG.md, ARCHITECTURE.md.
+- **Next actionable phase: Phase 4 — COMBAT FOUNDATION** (no blockers; builds on Phase 3.5 aim/facing/charge systems).
 
 ---
 

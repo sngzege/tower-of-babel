@@ -25,10 +25,12 @@ class PlayerStats:
     move_speed: float
     acceleration: float
     friction: float
-    # Dodge / roll (world pixels, seconds).
+    # Dodge / roll (world pixels, seconds, charges).
     roll_distance: float
     roll_duration: float
     dodge_invulnerability: float
+    dodge_cooldown: float
+    dodge_max_charges: int
     # Resources.
     max_health: float
     max_mana: float
@@ -91,13 +93,17 @@ class PlayerStats:
 
         body_width = read("body", "width")
         body_height = read("body", "height")
-        kwargs = {
+        kwargs: dict[str, Any] = {
             "move_speed": read("movement", "move_speed"),
             "acceleration": read("movement", "acceleration"),
             "friction": read("movement", "friction"),
             "roll_distance": read("dodge", "roll_distance"),
             "roll_duration": read("dodge", "roll_duration"),
             "dodge_invulnerability": read("dodge", "invulnerability"),
+            "dodge_cooldown": read("dodge", "dodge_cooldown"),
+            "dodge_max_charges": _read_int(
+                stats, "dodge", "dodge_max_charges", problems
+            ),
             "max_health": read("resources", "max_health"),
             "max_mana": read("resources", "max_mana"),
             "attack_speed": read("resources", "attack_speed"),
@@ -119,3 +125,21 @@ class PlayerStats:
                 + "; ".join(sorted(set(problems)))
             )
         return cls(**kwargs)
+
+
+def _read_int(
+    stats: dict[str, Any], group: str, key: str, problems: list[str] | None = None
+) -> int:
+    """Read an integer value from stats[group][key]; 0 on error."""
+    _problems: list[str] = [] if problems is None else problems
+    node = stats.get(group)
+    if not isinstance(node, dict):
+        _problems.append(f"missing group '{group}'")
+        return 0
+    value = node.get(key)
+    if isinstance(value, bool) or not isinstance(value, int):
+        _problems.append(f"'{group}.{key}' must be an integer")
+        return 0
+    if value < 1:
+        _problems.append(f"'{group}.{key}' must be >= 1")
+    return int(value)

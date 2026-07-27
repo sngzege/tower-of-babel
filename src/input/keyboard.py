@@ -2,8 +2,10 @@
 
 Translates pygame events and key states into DeviceSnapshots with stable raw
 control names ("q", "space", "escape", "mouse_left", ...). Movement axes come
-from WASD and arrow keys. Only this module (and controller.py) touches
-pygame's input APIs.
+from WASD only; arrow keys feed the directional aim channel (approved
+pre-Phase-4 requirement). The mouse cursor position and movement flag are
+included for mouse-aim calculations. Only this module (and controller.py)
+touches pygame's input APIs (adapter isolation).
 """
 
 from __future__ import annotations
@@ -14,11 +16,16 @@ from input.input_manager import DeviceSnapshot
 
 _MOUSE_NAMES = {1: "mouse_left", 2: "mouse_middle", 3: "mouse_right"}
 
-_MOVEMENT_KEYS = {
+# WASD exclusively controls movement (arrows now go to the aim channel).
+_MOVEMENT_KEYS: dict[str, tuple[float, float]] = {
     "w": (0.0, -1.0),
     "s": (0.0, 1.0),
     "a": (-1.0, 0.0),
     "d": (1.0, 0.0),
+}
+
+# Arrow keys control keyboard aim (directional, 8-way via DeviceSnapshot.aim_axis).
+_AIM_KEYS: dict[str, tuple[float, float]] = {
     "up": (0.0, -1.0),
     "down": (0.0, 1.0),
     "left": (-1.0, 0.0),
@@ -34,6 +41,7 @@ class KeyboardMouse:
 
         self._pygame = pygame
         self._key_names = _build_key_names(pygame)
+        self._last_pointer: tuple[int, int] | None = None
 
     def snapshot(self) -> DeviceSnapshot:
         pygame = self._pygame
@@ -83,12 +91,31 @@ class KeyboardMouse:
             if key_name in held:
                 axis_x += dx
                 axis_y += dy
+
+        aim_axis_x = 0.0
+        aim_axis_y = 0.0
+        for key_name, (dx, dy) in _AIM_KEYS.items():
+            if key_name in held:
+                aim_axis_x += dx
+                aim_axis_y += dy
+
+        pos = pygame.mouse.get_pos()
+        pointer = (float(pos[0]), float(pos[1]))
+        pointer_moved = (
+            self._last_pointer is not None and pos != self._last_pointer
+        )
+        self._last_pointer = pos
+
         return DeviceSnapshot(
             pressed=frozenset(pressed),
             held=frozenset(held),
             released=frozenset(released),
             axis_x=axis_x,
             axis_y=axis_y,
+            aim_axis_x=aim_axis_x,
+            aim_axis_y=aim_axis_y,
+            pointer=pointer,
+            pointer_moved=pointer_moved,
             quit_requested=quit_requested,
         )
 
@@ -110,3 +137,4 @@ def _build_key_names(pygame: Any) -> dict[int, str]:
     names[pygame.K_LEFT] = "left"
     names[pygame.K_RIGHT] = "right"
     return names
+

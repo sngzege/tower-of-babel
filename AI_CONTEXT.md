@@ -2,6 +2,11 @@
 → Güncel durum dosyası: her oturumun başında ÖNCE bunu oku (hangi aşamadayız,
   ne çalışıyor, doğrulama komutları, teknik borç). İş bitince güncelle.
 
+## docs/development/CONTINUATION_PROMPT.md
+→ Başka agent devam edeceğinde bu dosya kopyalanıp prompt olarak verilmeli.
+  İçinde Phase 3.5'te kaldığımız nokta, Phase 4'e kadar implementasyon, ve
+  sonraki adımlar yazar.
+
 ## RULES.md
 → Her zaman oku.
 

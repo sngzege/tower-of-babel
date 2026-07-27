@@ -38,6 +38,10 @@ class DeviceSnapshot:
     released: frozenset[str] = frozenset()  # raw control names that went up
     axis_x: float = 0.0  # movement axis -1..1
     axis_y: float = 0.0
+    aim_axis_x: float = 0.0  # directional aim axis -1..1 (arrows / right stick)
+    aim_axis_y: float = 0.0
+    pointer: tuple[float, float] | None = None  # pointer position (screen px)
+    pointer_moved: bool = False  # pointer moved since the previous frame
     quit_requested: bool = False
 
 
@@ -49,13 +53,23 @@ class InputDevice(Protocol):
 
 @dataclass(frozen=True)
 class ActionFrame:
-    """Abstract input for one frame (gameplay-facing)."""
+    """Abstract input for one frame (gameplay-facing).
+
+    Movement (``move_*``) and aim (``aim_*`` / ``pointer``) are independent
+    channels (approved pre-Phase-4 requirement): WASD moves, arrow keys aim
+    directionally, and the pointer aims positionally. Gameplay never sees
+    raw keys - only this frame.
+    """
 
     pressed: frozenset[Action] = frozenset()
     held: frozenset[Action] = frozenset()
     released: frozenset[Action] = frozenset()
     move_x: float = 0.0
     move_y: float = 0.0
+    aim_x: float = 0.0
+    aim_y: float = 0.0
+    pointer: tuple[float, float] | None = None
+    pointer_moved: bool = False
     quit_requested: bool = False
 
 
@@ -85,6 +99,10 @@ class InputManager:
         released: set[Action] = set()
         move_x = 0.0
         move_y = 0.0
+        aim_x = 0.0
+        aim_y = 0.0
+        pointer: tuple[float, float] | None = None
+        pointer_moved = False
         quit_requested = False
         for device in self._devices:
             snap = device.snapshot()
@@ -102,6 +120,11 @@ class InputManager:
                     released.add(action)
             move_x += snap.axis_x
             move_y += snap.axis_y
+            aim_x += snap.aim_axis_x
+            aim_y += snap.aim_axis_y
+            if snap.pointer is not None:
+                pointer = snap.pointer
+            pointer_moved = pointer_moved or snap.pointer_moved
             quit_requested = quit_requested or snap.quit_requested
         return ActionFrame(
             pressed=frozenset(pressed),
@@ -109,6 +132,10 @@ class InputManager:
             released=frozenset(released),
             move_x=_clamp(move_x),
             move_y=_clamp(move_y),
+            aim_x=_clamp(aim_x),
+            aim_y=_clamp(aim_y),
+            pointer=pointer,
+            pointer_moved=pointer_moved,
             quit_requested=quit_requested,
         )
 

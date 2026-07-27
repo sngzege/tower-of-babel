@@ -6,12 +6,19 @@ greybox test map); the real dungeon scene replaces it when rooms/doors
 arrive (Phase 6+), reusing Player, Room, CollisionWorld, and Camera
 unchanged. Rendering is placeholder tinting driven by the animation hook;
 the sprite pipeline (later phase) swaps it without touching gameplay.
+
+The scene owns the ``AimController`` (priority policy between mouse and
+keyboard aim) and injects the resolved aim vector into the Player each
+frame. This keeps the Player rendering-agnostic (AimController does depend
+on Camera's ``screen_to_world``, which is rendering, so the scene bridges
+the boundary per the dependency rules).
 """
 
 from __future__ import annotations
 
 from core.enums import SceneID
 from engine.scene import Scene
+from gameplay.player.aim_controller import AimController
 from gameplay.player.player import Player
 from gameplay.player.player_controller import PlayerController
 from gameplay.player.player_state import PlayerState
@@ -27,7 +34,6 @@ _FACING_COLOR: Color = (245, 245, 245)
 _FACING_MARKER_SIZE = 6.0
 _FACING_MARKER_DISTANCE = 12.0
 
-# Placeholder state tinting (driven by the animation hook, not by logic).
 _STATE_COLORS: dict[PlayerState, Color] = {
     PlayerState.IDLE: (190, 190, 215),
     PlayerState.MOVE: (150, 195, 250),
@@ -39,7 +45,7 @@ _INVULNERABLE_TINT: Color = (255, 255, 255)
 
 
 class PlaytestScene(Scene):
-    """Playable greybox room: move, dodge, collide, camera follow."""
+    """Playable greybox room: move, dodge, collide, camera follow, aim."""
 
     scene_id = SceneID.DUNGEON
 
@@ -56,6 +62,7 @@ class PlaytestScene(Scene):
         self.world = world
         self.camera = camera
         self._controller = controller or PlayerController()
+        self._aim = AimController(screen_to_world=camera.screen_to_world)
 
     def enter(self) -> None:
         spawn_x, spawn_y = self.room.player_spawn
@@ -63,6 +70,8 @@ class PlaytestScene(Scene):
         self.camera.center_on(spawn_x, spawn_y)
 
     def update(self, frame: ActionFrame, dt: float) -> None:
+        aim = self._aim.resolve(frame, self.player.body.x, self.player.body.y)
+        self.player.set_aim(aim.direction[0], aim.direction[1])
         intent = self._controller.build_intent(frame)
         self.player.update(intent, self.world, dt)
         self.camera.follow(self.player.body.x, self.player.body.y, dt)
@@ -78,7 +87,6 @@ class PlaytestScene(Scene):
             color = _INVULNERABLE_TINT
         renderer.draw_rect(self.camera.screen_rect(self.player.body.box), color)
 
-        # Facing marker: placeholder for directional animation/aim hooks.
         facing_x, facing_y = pose.facing.vector
         marker = AABB(
             self.player.body.x + facing_x * _FACING_MARKER_DISTANCE

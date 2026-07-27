@@ -1,4 +1,9 @@
-"""Tests for the player dodge/roll: i-frames, velocity, control (Phase 3)."""
+"""Tests for the player dodge/roll: charges, i-frames, velocity,
+and control (Phase 3+amendments).
+
+Charge tests live in test_dodge_charges.py; this file tests dodge
+integration on the Player (movement, i-frames, facing/events).
+"""
 
 from __future__ import annotations
 
@@ -44,7 +49,6 @@ def test_roll_covers_configured_distance(
         player.update(IDLE_INTENT, world, DT)
         frames += 1
     traveled = player.body.x - start_x
-    # Integrates whole frames: distance plus at most one extra frame of roll.
     assert stats.roll_distance <= traveled
     assert traveled <= stats.roll_distance + stats.roll_speed * DT
 
@@ -54,12 +58,10 @@ def test_iframes_active_only_inside_configured_window(
 ) -> None:
     player.update(DODGE_RIGHT, world, DT)
     assert player.invulnerable
-    assert not player.hurtbox.vulnerable  # hurtbox mirrors i-frames
+    assert not player.hurtbox.vulnerable
 
-    # Still inside the window: invulnerable.
     while player._iframe_remaining > 0.0:  # noqa: SLF001
         player.update(IDLE_INTENT, world, DT)
-    # Window consumed but the roll continues: vulnerable again.
     assert player.state is PlayerState.DODGE
     assert not player.invulnerable
     assert player.hurtbox.vulnerable
@@ -89,14 +91,14 @@ def test_dodge_during_roll_is_ignored(
         player.update(PlayerIntent(wish_x=1.0), world, DT)
     # A second press (now steering up) must not restart or redirect the roll.
     player.update(PlayerIntent(wish_y=-1.0, dodge_pressed=True), world, DT)
-    assert player.body.vy == pytest.approx(0.0)  # still rolling straight right
+    assert player.body.vy == pytest.approx(0.0)
     assert player.body.vx > 0.0
 
 
-def test_dodge_uses_facing_without_move_input(
+def test_dodge_uses_aim_when_no_move_input(
     player: Player, world: CollisionWorld, stats: PlayerStats
 ) -> None:
-    player.facing = Direction8.LEFT
+    player.set_aim(-1.0, 0.0)  # aim left (facing follows aim)
     player.update(PlayerIntent(dodge_pressed=True), world, DT)
     assert player.state is PlayerState.DODGE
     assert player.body.vx == pytest.approx(-stats.roll_speed)
@@ -109,17 +111,29 @@ def test_diagonal_roll_is_unit_speed(
     assert player.body.speed == pytest.approx(stats.roll_speed)
 
 
-def test_movement_states_follow_input(player: Player, world: CollisionWorld) -> None:
+def test_movement_direction_tracks_input_and_does_not_affect_facing(
+    player: Player, world: CollisionWorld
+) -> None:
+    """Movement and facing are independent (pre-Phase-4 requirement)."""
     assert player.state is PlayerState.IDLE
     player.update(PlayerIntent(wish_x=1.0), world, DT)
     assert player.state is PlayerState.MOVE
-    assert player.facing is Direction8.RIGHT
-    _roll(player, world, IDLE_INTENT, 120)  # let friction stop the body
-    assert player.state is PlayerState.IDLE
+    assert player.movement_direction is Direction8.RIGHT
+    assert player.facing is Direction8.DOWN  # aim unchanged (default down)
+
+    # No input -> movement_direction None.
+    _roll(player, world, IDLE_INTENT, 120)
+    assert player.movement_direction is None
+
+    # Movement direction should not change facing.
+    player.set_aim(0.0, -1.0)  # aim up
+    player.update(PlayerIntent(wish_x=1.0), world, DT)
+    assert player.movement_direction is Direction8.RIGHT
+    assert player.facing is Direction8.UP  # still aim up, not right
 
 
 def test_animation_hook_exposes_state_and_facing(player: Player) -> None:
-    player.facing = Direction8.UP_RIGHT
+    player.set_aim(0.707, -0.707)  # aim up-right
     pose = player.animation_pose
     assert pose.state is PlayerState.IDLE
     assert pose.facing is Direction8.UP_RIGHT

@@ -59,3 +59,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Collision resolution upgraded from discrete overlap to swept per-axis clamping after tests caught tunneling at large frame steps.
 - Dodge applies roll velocity on its starting frame (instant response); the starting frame counts toward roll duration (no distance overshoot).
+
+### Added (Phase 3.5 amendments, 2026-07-27)
+
+- Charged dodge system (`src/gameplay/player/dodge_charges.py`): reusable,
+  data-driven (`dodge_max_charges`, `dodge_cooldown`), independent per-charge
+  timers, UI-ready state (`current`, `charges`, `ready`), reset on death.
+- Aim/movement/facing split: `Player.aim_vector` / `Player.movement_direction` /
+  `Player.facing` are separate properties; `AimController` owns priority policy.
+- Input channels separation: `DeviceSnapshot`/`ActionFrame` gain independent
+  `move_*` (WASD), `aim_*` (arrows / right stick), and `pointer`/`pointer_moved`
+  (mouse); `PlayerController.build_intent` maps only movement+dodge attack;
+  scene-level `AimController` feeds `Player.set_aim` each frame.
+- Mouse-to-world via `Camera.screen_to_world` (shake/zoom-aware).
+- Data/schema: `data/player/stats.yaml` gains `dodge_max_charges`; schema
+  `data/schemas/player.schema.yaml` updated accordingly.
+- Tests added: 18 new tests in `test_dodge_charges.py` (10 charge scenarios),
+  `test_aim.py` (10 aim/movement/facing tests), plus `test_player_dodge.py`
+  updated for facing independence. Suite: 163 passed + 1 skip.

@@ -81,6 +81,24 @@ class Camera:
         right, bottom = self.world_to_screen(box.right, box.bottom)
         return (left, top, right - left, bottom - top)
 
+    def screen_to_world(self, screen_x: float, screen_y: float) -> tuple[float, float]:
+        """Inverse of world_to_screen: a screen pixel -> world position.
+
+        Camera shake is subtracted before the transformation so mouse-aim
+        stays consistent when the screen shakes.
+        """
+        world_x = (
+            screen_x
+            - self.shake_offset[0]
+            - self._viewport_width / 2.0
+        ) / self.zoom + self.x
+        world_y = (
+            screen_y
+            - self.shake_offset[1]
+            - self._viewport_height / 2.0
+        ) / self.zoom + self.y
+        return (world_x, world_y)
+
     def _clamp_to_bounds(self) -> None:
         """Keep the viewport inside bounds; center if the view is larger."""
         if self._bounds is None:

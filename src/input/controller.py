@@ -1,8 +1,10 @@
 """Gamepad adapter (pygame-aware input module).
 
 Wraps pygame's joystick API and exposes buttons/axes as raw control names
-("button_a", "right_trigger", ...). The left stick feeds the movement axes
-with a configurable deadzone. Safe with zero controllers connected.
+("button_a", "right_trigger", ...). The left stick feeds the movement axes,
+the right stick feeds the directional aim channel (twin-stick architecture,
+pre-Phase-4 requirement). Both have configurable deadzones. Safe with zero
+controllers connected.
 
 NOTE: uses the stable pygame.joystick API. The _sdl2.controller module is
 still flagged experimental upstream (FRAMEWORK_EVALUATION.md section 7) and
@@ -27,6 +29,11 @@ _BUTTON_NAMES = {
 }
 
 _TRIGGER_AXES = ((2, "left_trigger"), (5, "right_trigger"))
+
+# Typical Xbox / dual-stick gamepad mapping: axes 0,1 = left stick;
+# axes 3,4 = right stick (SDL mapping for Xbox One S on Windows).
+_RIGHT_STICK_X = 3
+_RIGHT_STICK_Y = 4
 
 
 class Gamepad:
@@ -69,10 +76,19 @@ class Gamepad:
         }
         axis_x = self._apply_deadzone(self._joystick.get_axis(0))
         axis_y = self._apply_deadzone(self._joystick.get_axis(1))
+
+        num_axes = self._joystick.get_numaxes()
+        aim_axis_x = 0.0
+        aim_axis_y = 0.0
+        if num_axes > _RIGHT_STICK_X:
+            aim_axis_x = self._apply_deadzone(self._joystick.get_axis(_RIGHT_STICK_X))
+        if num_axes > _RIGHT_STICK_Y:
+            aim_axis_y = self._apply_deadzone(self._joystick.get_axis(_RIGHT_STICK_Y))
+
         # Triggers count as digital actions when pulled past halfway (PROVISIONAL).
         for axis_index, name in _TRIGGER_AXES:
             if (
-                axis_index < self._joystick.get_numaxes()
+                axis_index < num_axes
                 and self._joystick.get_axis(axis_index) > 0.5
             ):
                 held.add(name)
@@ -82,9 +98,12 @@ class Gamepad:
             released=frozenset(released),
             axis_x=axis_x,
             axis_y=axis_y,
+            aim_axis_x=aim_axis_x,
+            aim_axis_y=aim_axis_y,
         )
 
     def _apply_deadzone(self, value: float) -> float:
         if abs(value) < self._deadzone:
             return 0.0
         return value
+

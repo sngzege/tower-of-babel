@@ -14,7 +14,9 @@ VALID_DOCUMENT = {
         "dodge": {
             "roll_distance": 76.0,
             "roll_duration": 0.34,
-            "invulnerability": 0.26,
+            "invulnerability": 0.2,
+            "dodge_cooldown": 1.5,
+            "dodge_max_charges": 2,
         },
         "resources": {"max_health": 100.0, "max_mana": 50.0, "attack_speed": 1.0},
         "body": {"width": 14.0, "height": 12.0},
@@ -31,7 +33,7 @@ def test_from_document_reads_every_value() -> None:
     assert stats.friction == 1300.0
     assert stats.roll_distance == 76.0
     assert stats.roll_duration == 0.34
-    assert stats.dodge_invulnerability == 0.26
+    assert stats.dodge_invulnerability == 0.2
     assert stats.max_health == 100.0
     assert stats.max_mana == 50.0
     assert stats.attack_speed == 1.0
@@ -107,4 +109,6 @@ def test_shipped_player_data_loads_from_data_dir() -> None:
     stats = PlayerStats.from_document(document)
     assert stats.move_speed > 0.0
     assert stats.dodge_invulnerability <= stats.roll_duration
+    assert stats.dodge_cooldown > 0.0
+    assert stats.dodge_max_charges >= 2
     assert stats.roll_speed > stats.move_speed  # a roll must outpace running
