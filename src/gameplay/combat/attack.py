@@ -170,17 +170,11 @@ class AttackExecutor:
         if not self.hitbox_active():
             return None
 
-        # Offset hitbox toward the facing direction.
-        center_x = (
-            owner_x
-            + self.data.hitbox_offset_x
-            + facing_x * (self.data.hitbox_width * 0.3)
-        )
-        center_y = (
-            owner_y
-            + self.data.hitbox_offset_y
-            + facing_y * (self.data.hitbox_height * 0.3)
-        )
+        # Hitbox center is purely along the facing direction.
+        # No absolute offset — the hitbox follows where you aim.
+        push = self.data.hitbox_height * 0.5
+        center_x = owner_x + facing_x * push
+        center_y = owner_y + facing_y * push
 
         return AABB(
             center_x - self.data.hitbox_width / 2.0,
