@@ -23,7 +23,7 @@ def stats() -> PlayerStats:
         dodge_max_charges=2,
         max_health=100.0,
         max_mana=50.0,
-        attack_speed=1.0,
+        attack_speed=0.5,
         body_width=14.0,
         body_height=12.0,
         hitbox_width=18.0,

@@ -5,13 +5,13 @@ id: player_default_attack
 name: Default Attack (Greybox)
 tags: [greybox, physical]
 windup: 0.0
-active: 0.15
-recovery: 0.1
-cooldown: 0.3
+active: 0.12
+recovery: 0.05
+cooldown: 0.5
 damage: 25.0
 damage_types: [physical]
 hitbox:
-  width: 24.0
-  height: 20.0
+  width: 16.0
+  height: 34.0
   offset_x: 0.0
-  offset_y: 0.0
+  offset_y: -12.0

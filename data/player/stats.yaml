@@ -23,7 +23,7 @@ stats:
   resources:
     max_health: 100.0
     max_mana: 50.0
-    attack_speed: 1.0      # multiplier; consumed by combat (Phase 4)
+    attack_speed: 0.5       # cooldown between attacks (~1.5 atk/s with 0.17s active+recovery)
   body:
     width: 14.0            # collision box (world px)
     height: 12.0

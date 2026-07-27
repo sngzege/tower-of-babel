@@ -108,7 +108,7 @@ class Player:
                 windup=0.0,
                 active=0.12,
                 recovery=0.05,
-                cooldown=0.5,
+                cooldown=stats.attack_speed,
                 damage=25.0,
                 damage_types=frozenset({"physical"}),
                 hitbox_width=16.0,
