@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from gameplay.combat.attack import AttackData, AttackExecutor, AttackPhase
 
 DT = 1.0 / 60.0
@@ -119,8 +121,21 @@ def test_hitbox_for_returns_aabb_when_active() -> None:
     exe.update(0.01)
     aabb = exe.hitbox_for(100.0, 100.0, facing_x=1.0, facing_y=0.0)
     assert aabb is not None
-    assert aabb.width == 30.0  # reach mapped to width for horizontal facing
-    assert aabb.height == 14.0  # spread mapped to height
+    # Facing RIGHT: AABB should be ~30 wide (reach) x ~14 tall (spread).
+    assert aabb.width == pytest.approx(30.0, abs=0.001)
+    assert aabb.height == pytest.approx(14.0, abs=0.001)
+
+    # Facing DOWN: AABB should be ~14 wide x ~30 tall.
+    aabb2 = exe.hitbox_for(100.0, 100.0, facing_x=0.0, facing_y=1.0)
+    assert aabb2 is not None
+    assert aabb2.width == pytest.approx(14.0, abs=0.001)
+    assert aabb2.height == pytest.approx(30.0, abs=0.001)
+
+    # Facing diagonal UP-RIGHT: AABB smoothly interpolates.
+    aabb3 = exe.hitbox_for(100.0, 100.0, facing_x=0.707, facing_y=-0.707)
+    assert aabb3 is not None
+    assert aabb3.width > 14.0  # between the two extremes
+    assert aabb3.height > 14.0
 
 
 def test_full_attack_cycle_returns_to_idle() -> None:

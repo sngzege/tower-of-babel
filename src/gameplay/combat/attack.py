@@ -24,6 +24,7 @@ Usage:
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import Enum
 
@@ -163,10 +164,14 @@ class AttackExecutor:
     ) -> AABB | None:
         """Get the world-space hitbox AABB if the hitbox is active.
 
-        The hitbox is like a spear: it starts near the player and extends
-        ``reach`` pixels in the facing direction, with ``spread`` width
-        perpendicular to the facing. This makes the AABB rotate with aim:
-        facing right -> horizontal rectangle, facing down -> vertical.
+        Full 360° rotation: the hitbox is a rectangle of size
+        ``reach x spread``, centered at the midpoint of the reach,
+        rotated to align with the facing direction. The returned AABB
+        is the axis-aligned bounding box of that rotated rectangle,
+        so it works at ANY angle — mouse, keyboard, or gamepad aim.
+
+        Visual: like a spear or sword arc that follows your aim
+        smoothly, not snapping to 4/8 cardinal directions.
         """
         if not self.hitbox_active():
             return None
@@ -174,22 +179,28 @@ class AttackExecutor:
         spread = self.data.hitbox_spread
         reach = self.data.hitbox_reach
 
-        # Determine dominant axis from facing direction.
-        if abs(facing_x) >= abs(facing_y):
-            # Horizontal-facing: AABB is wide (reach) and short (spread).
-            half_spread = spread / 2.0
-            if facing_x > 0:
-                # Facing RIGHT: hitbox extends to the right.
-                return AABB(owner_x, owner_y - half_spread, reach, spread)
-            else:
-                # Facing LEFT: hitbox extends to the left.
-                return AABB(owner_x - reach, owner_y - half_spread, reach, spread)
-        else:
-            # Vertical-facing: AABB is tall (reach) and narrow (spread).
-            half_spread = spread / 2.0
-            if facing_y > 0:
-                # Facing DOWN: hitbox extends downward.
-                return AABB(owner_x - half_spread, owner_y, spread, reach)
-            else:
-                # Facing UP: hitbox extends upward.
-                return AABB(owner_x - half_spread, owner_y - reach, spread, reach)
+        length = math.hypot(facing_x, facing_y)
+        if length < 0.001:
+            return None  # no valid direction
+
+        # Unit facing direction.
+        dx = facing_x / length
+        dy = facing_y / length
+
+        # Perpendicular direction (rotated 90° counter-clockwise).
+        px = -dy
+        py = dx
+
+        # Half-extents of the rotated rectangle.
+        hu = reach / 2.0  # half along facing
+        hv = spread / 2.0  # half perpendicular to facing
+
+        # World-space AABB half-widths (rotated rectangle extents).
+        hw_x = abs(hu * dx) + abs(hv * px)
+        hw_y = abs(hu * dy) + abs(hv * py)
+
+        # Center of the hitbox = midpoint of the reach.
+        cx = owner_x + hu * dx
+        cy = owner_y + hu * dy
+
+        return AABB(cx - hw_x, cy - hw_y, hw_x * 2.0, hw_y * 2.0)
