@@ -1,0 +1,59 @@
+# PROVISIONAL - structure only, not approved content.
+# Class roster is locked (L3: Warrior first); class-specific profiles arrive
+# through this same pipeline. stats keys declared since Phase 3 (player
+# controller): every gameplay number is data-driven (RULES.md section 7).
+schema: player
+version: 1
+fields:
+  id:    {type: str, required: true, pattern: "^[a-z][a-z0-9_]*$"}
+  name:  {type: str}
+  tags:  {type: list, item: str, default: []}
+  stats:
+    type: dict
+    keys:
+      movement:
+        type: dict
+        keys:
+          move_speed:   {type: float, min: 0, required: true}
+          acceleration: {type: float, min: 0, required: true}
+          friction:     {type: float, min: 0, required: true}
+      dodge:
+        type: dict
+        keys:
+          roll_distance:   {type: float, min: 0, required: true}
+          roll_duration:   {type: float, min: 0, required: true}
+          invulnerability: {type: float, min: 0, required: true}
+      resources:
+        type: dict
+        keys:
+          max_health:   {type: float, min: 0, required: true}
+          max_mana:     {type: float, min: 0, required: true}
+          attack_speed: {type: float, min: 0, required: true}
+      body:
+        type: dict
+        keys:
+          width:  {type: float, min: 0, required: true}
+          height: {type: float, min: 0, required: true}
+      hitbox:
+        type: dict
+        keys:
+          width:    {type: float, min: 0}
+          height:   {type: float, min: 0}
+          offset_x: {type: float}
+          offset_y: {type: float}
+      hurtbox:
+        type: dict
+        keys:
+          width:    {type: float, min: 0}
+          height:   {type: float, min: 0}
+          offset_x: {type: float}
+          offset_y: {type: float}
+  notes: {type: str}
+example:
+  id: example_player_profile
+  tags: []
+  stats:
+    movement:  {move_speed: 120.0, acceleration: 1000.0, friction: 1300.0}
+    dodge:     {roll_distance: 76.0, roll_duration: 0.34, invulnerability: 0.26}
+    resources: {max_health: 100.0, max_mana: 50.0, attack_speed: 1.0}
+    body:      {width: 14.0, height: 12.0}

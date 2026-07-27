@@ -1,0 +1,22 @@
+# PROVISIONAL - structure only, not approved content (D12 pending).
+# Field vocabulary follows GAMEPLAY_DESIGN.md sections 5-6 (signature attack,
+# ability/passive pools, specializations) at framework level only.
+schema: class
+version: 1
+fields:
+  id:                 {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
+  name:               {type: str, required: true}
+  description:        {type: str}
+  tags:               {type: list, item: str, default: []}
+  resource:           {type: str}   # class resource id (design TBD)
+  base_attack_id:     {type: str}   # ref: abilities (signature basic attack)
+  ability_ids:        {type: list, item: str, default: []}   # ref: abilities
+  passive_ids:        {type: list, item: str, default: []}   # ref: passives
+  specialization_ids: {type: list, item: str, default: []}
+example:
+  id: example_class
+  name: Example Class
+  tags: [melee]
+  ability_ids: []
+  passive_ids: []
+  specialization_ids: []

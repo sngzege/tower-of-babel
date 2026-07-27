@@ -1,0 +1,22 @@
+# PROVISIONAL - structure only, not approved content (loot tables are balance-owned).
+schema: loot_table
+version: 1
+fields:
+  id:      {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
+  rolls:   {type: int, min: 1, default: 1}
+  entries:
+    type: list
+    required: true
+    min_length: 1
+    item:
+      type: dict
+      keys:
+        item_id: {type: str, required: true}   # ref: items / equipment / etc.
+        weight:  {type: int, min: 1, default: 1}
+        min:     {type: int, min: 0, default: 1}
+        max:     {type: int, min: 0}
+example:
+  id: example_loot_table
+  rolls: 1
+  entries:
+    - {item_id: example_item, weight: 1}

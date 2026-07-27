@@ -1,0 +1,18 @@
+# PROVISIONAL - structure only, not approved content.
+# Passives: class pool + universal pool, tag-driven synergies (GAMEPLAY_DESIGN.md section 6).
+schema: passive
+version: 1
+fields:
+  id:          {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
+  name:        {type: str, required: true}
+  description: {type: str}
+  tags:        {type: list, item: str, default: []}
+  stackable:   {type: bool, default: false}
+  max_stacks:  {type: int, min: 1, default: 1}
+  requires:    {type: list, item: str, default: []}
+  modifiers:   {type: list, item: dict, default: []}  # stat/behavior modifiers
+example:
+  id: example_passive
+  name: Example Passive
+  tags: []
+  modifiers: []

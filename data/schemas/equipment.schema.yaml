@@ -1,0 +1,15 @@
+# PROVISIONAL - structure only, not approved content (gear depth is decision D6).
+schema: equipment
+version: 1
+fields:
+  id:         {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
+  name:       {type: str, required: true}
+  slot:       {type: str}   # gear slot vocabulary TBD (D6)
+  tags:       {type: list, item: str, default: []}
+  modifiers:  {type: list, item: dict, default: []}
+  requires:   {type: list, item: str, default: []}
+example:
+  id: example_equipment
+  name: Example Equipment
+  slot: trinket
+  tags: []

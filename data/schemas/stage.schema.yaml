@@ -1,0 +1,21 @@
+# PROVISIONAL - structure only, not approved content (theme D2 pending).
+schema: stage
+version: 1
+fields:
+  id:         {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
+  name:       {type: str, required: true}
+  index:      {type: int, min: 0, required: true}   # position in the macro sequence
+  floors:
+    type: dict
+    keys:
+      count:     {type: int, min: 1}
+      min_rooms: {type: int, min: 3}
+      max_rooms: {type: int, min: 3}
+  room_kinds: {type: dict}   # optional kind-weight overrides for procgen
+  boss_id:    {type: str}    # ref: bosses
+  tags:       {type: list, item: str, default: []}
+example:
+  id: example_stage
+  name: Example Stage
+  index: 0
+  floors: {count: 2, min_rooms: 6, max_rooms: 9}

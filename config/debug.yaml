@@ -1,0 +1,6 @@
+# Technical debug configuration. No game content (RULES.md section 23).
+# Debug tools must be disabled in release builds (IMPLEMENTATION_PLAN debug phase).
+enabled: false
+show_fps: false
+show_hitboxes: false
+show_seed: false

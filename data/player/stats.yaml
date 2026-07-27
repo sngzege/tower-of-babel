@@ -1,0 +1,37 @@
+# Base player stats - PROVISIONAL greybox tuning (Phase 3), not a balance
+# decision. Every gameplay number lives here (RULES.md section 7); tuning
+# happens in this file, never in code. Class-specific profiles (L3: Warrior
+# first) layer on top of this base through the same data pipeline later.
+id: player_base
+name: Base Player (Greybox)
+tags: [greybox, base]
+notes: >
+  Class-agnostic base profile for the Phase 3 player controller.
+  Units: world pixels, seconds. Tuned for a responsive, deliberate feel
+  (GAMEPLAY_DESIGN.md section 3: 8-direction movement, i-frame dodge).
+stats:
+  movement:
+    move_speed: 120.0      # px/s top speed at full input
+    acceleration: 1000.0   # px/s^2; reaches top speed in ~0.12s (snappy)
+    friction: 1300.0       # px/s^2; stops in ~0.09s (no ice-skating)
+  dodge:
+    roll_distance: 76.0    # px covered by one roll
+    roll_duration: 0.34    # s; roll speed = distance / duration (~224 px/s)
+    invulnerability: 0.26  # s of i-frames from roll start (<= roll_duration)
+  resources:
+    max_health: 100.0
+    max_mana: 50.0
+    attack_speed: 1.0      # multiplier; consumed by combat (Phase 4)
+  body:
+    width: 14.0            # collision box (world px)
+    height: 12.0
+  hitbox:                  # attack box; combat activates it (Phase 4)
+    width: 22.0
+    height: 16.0
+    offset_x: 0.0
+    offset_y: 0.0
+  hurtbox:                 # vulnerable box; dodge i-frames toggle it
+    width: 12.0
+    height: 12.0
+    offset_x: 0.0
+    offset_y: 0.0

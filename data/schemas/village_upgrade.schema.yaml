@@ -1,0 +1,16 @@
+# PROVISIONAL - structure only, not approved content.
+schema: village_upgrade
+version: 1
+fields:
+  id:          {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
+  name:        {type: str, required: true}
+  building_id: {type: str}   # ref: buildings (optional)
+  cost:        {type: dict}  # {resource_id: amount}
+  requires:    {type: list, item: str, default: []}  # prerequisites
+  unlocks:     {type: list, item: str, default: []}  # ref: unlocks
+  visual:      {type: str}   # visual state id
+example:
+  id: example_village_upgrade
+  name: Example Village Upgrade
+  cost: {}
+  unlocks: []

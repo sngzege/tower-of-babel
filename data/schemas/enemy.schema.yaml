@@ -1,0 +1,27 @@
+# PROVISIONAL - structure only, not approved content.
+# 'family' and 'role' are design slots (GAMEPLAY_DESIGN.md section 8 taxonomy).
+schema: enemy
+version: 1
+fields:
+  id:          {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
+  name:        {type: str, required: true}
+  family:      {type: str}   # stage family this enemy belongs to
+  role:        {type: str}   # role slot (swarmer/charger/ranged/... - developer vocabulary)
+  tags:        {type: list, item: str, default: []}
+  stats:
+    type: dict
+    keys:
+      health: {type: int, min: 1}
+      damage: {type: int, min: 0}
+      speed:  {type: float, min: 0}
+  ability_ids: {type: list, item: str, default: []}   # ref: abilities
+  elite:
+    type: dict
+    keys:
+      modifiers: {type: list, item: str, default: []}
+example:
+  id: example_enemy
+  name: Example Enemy
+  family: example_family
+  role: swarmer
+  stats: {health: 10, damage: 1, speed: 1.0}

@@ -1,0 +1,17 @@
+# PROVISIONAL - structure only, not approved content.
+# Unlocks are milestone-driven content gates (GAMEPLAY_DESIGN.md section 11, L6).
+schema: unlock
+version: 1
+fields:
+  id:       {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
+  name:     {type: str, required: true}
+  kind:     {type: str}   # what type of content it grants (ability/npc/stage/...)
+  source:   {type: str}   # how it is earned (milestone id)
+  requires: {type: list, item: str, default: []}
+  grants:   {type: list, item: str, default: []}   # ids granted to reward pools
+  tags:     {type: list, item: str, default: []}
+example:
+  id: example_unlock
+  name: Example Unlock
+  kind: ability
+  grants: [example_ability]

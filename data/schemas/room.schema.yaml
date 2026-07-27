@@ -1,0 +1,44 @@
+# PROVISIONAL - structure only, not approved content.
+# kind vocabulary follows the WORLD_DESIGN.md section 11 room taxonomy.
+# Geometry fields (size/player_spawn/solids) declared since Phase 3 greybox
+# rooms; room templates for procgen (Phases 6-7) build on the same contract.
+schema: room
+version: 1
+fields:
+  id:            {type: str, required: true, pattern: "^[a-z][a-z0-9_]*$"}
+  kind:          {type: str, enum: [start, combat, elite, event, shop, shrine, secret, rest, boss], required: true}
+  name:          {type: str}
+  tags:          {type: list, item: str, default: []}
+  weight:        {type: int, min: 0, default: 1}   # selection weight for procgen
+  min_depth:     {type: int, min: 0, default: 0}
+  max_depth:     {type: int, min: 0}
+  encounter_ids: {type: list, item: str, default: []}
+  size:
+    type: dict
+    keys:
+      width:  {type: float, min: 0, required: true}
+      height: {type: float, min: 0, required: true}
+  player_spawn:
+    type: dict
+    keys:
+      x: {type: float, required: true}
+      y: {type: float, required: true}
+  solids:
+    type: list
+    default: []
+    item:
+      type: dict
+      keys:
+        x: {type: float, required: true}
+        y: {type: float, required: true}
+        w: {type: float, min: 0, required: true}
+        h: {type: float, min: 0, required: true}
+example:
+  id: example_room
+  kind: combat
+  weight: 2
+  min_depth: 0
+  size: {width: 960, height: 608}
+  player_spawn: {x: 480, y: 304}
+  solids:
+    - {x: 0, y: 0, w: 960, h: 16}

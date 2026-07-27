@@ -1,0 +1,43 @@
+# Project metadata and tooling configuration.
+# Governance: RULES.md. Tooling per IMPLEMENTATION_PLAN.md Step 00.2 (uv, pytest, ruff, mypy).
+# NOTE: No runtime dependencies yet. Any dependency (including a game framework)
+# must be justified and approved by the developer first (RULES.md section 14).
+
+[project]
+name = "roguelike"
+version = "0.1.0"
+description = "Human-directed action RPG + roguelike game project. See RULES.md and docs/design/."
+requires-python = ">=3.11"
+dependencies = [
+    # Justified (RULES.md section 14): config/ and data/ are YAML per PROJECT_STRUCTURE.md;
+    # the stdlib has no YAML parser.
+    "pyyaml>=6.0",
+    # Justified (RULES.md section 14): the game framework, DECIDED by the human developer
+    # on 2026-07-27 (docs/development/FRAMEWORK_EVALUATION.md). Adapter isolation rule:
+    # pygame may only be imported inside src/rendering, src/input, and src/audio.
+    "pygame-ce>=2.5",
+]
+
+[dependency-groups]
+# Development, test, formatting, and linting tools (IMPLEMENTATION_PLAN.md Step 00.2).
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "types-pyyaml>=6.0",  # type stubs for the declared pyyaml dependency (mypy)
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "src"

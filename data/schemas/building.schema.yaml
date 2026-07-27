@@ -1,0 +1,25 @@
+# PROVISIONAL - structure only, not approved content.
+# Buildings have tiers; a tier = visual upgrade + functional unlock
+# (GAMEPLAY_DESIGN.md section 18).
+schema: building
+version: 1
+fields:
+  id:      {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
+  name:    {type: str, required: true}
+  service: {type: str}   # service slot this building hosts
+  plot:    {type: str}   # village plot id
+  tiers:
+    type: list
+    min_length: 1
+    item:
+      type: dict
+      keys:
+        cost:    {type: dict}                          # {resource_id: amount}
+        unlocks: {type: list, item: str, default: []}  # ref: unlocks
+        visual:  {type: str}                           # visual state id
+  tags: {type: list, item: str, default: []}
+example:
+  id: example_building
+  name: Example Building
+  tiers:
+    - {cost: {}, unlocks: []}

@@ -1,0 +1,26 @@
+# PROVISIONAL - structure only, not approved content.
+# NPC framework: service slot + milestone arrival + progression tracks
+# (GAMEPLAY_DESIGN.md section 18, WORLD_DESIGN.md section 13).
+schema: npc
+version: 1
+fields:
+  id:          {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
+  name:        {type: str, required: true}
+  service:     {type: str}   # service slot id (placeholder vocabulary, developer-owned)
+  building_id: {type: str}   # ref: buildings
+  arrival:
+    type: dict
+    keys:
+      trigger: {type: str}   # milestone id (e.g. a boss first-kill flag)
+  tracks:
+    type: dict
+    keys:
+      service_tier: {type: dict}
+      questline:    {type: dict}
+      relationship: {type: dict}
+  tags: {type: list, item: str, default: []}
+example:
+  id: example_npc
+  name: Example NPC
+  service: service_slot_a
+  arrival: {trigger: example_milestone}

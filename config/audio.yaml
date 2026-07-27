@@ -1,0 +1,6 @@
+# Technical audio configuration. No game content (RULES.md section 23).
+volume:
+  master: 1.0
+  music: 0.8
+  sfx: 0.9
+mute: false

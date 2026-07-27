@@ -1,0 +1,17 @@
+# PROVISIONAL - structure only, not approved content (D6/D12 pending).
+schema: weapon
+version: 1
+fields:
+  id:       {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
+  name:     {type: str, required: true}
+  tags:     {type: list, item: str, default: []}
+  class_id: {type: str}   # ref: classes, if class-bound
+  attack:
+    type: dict
+    keys:
+      speed:  {type: float, min: 0}
+      damage: {type: dict}   # structure only; values are balance (developer)
+example:
+  id: example_weapon
+  name: Example Weapon
+  tags: [melee]

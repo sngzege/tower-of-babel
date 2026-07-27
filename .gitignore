@@ -1,0 +1,22 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# --- Tooling caches ---
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# --- Environment / editors ---
+.env
+.idea/
+.vscode/
+
+# --- Runtime output (keep directories, ignore contents) ---
+logs/*
+!logs/.gitkeep
+saves/*
+!saves/.gitkeep

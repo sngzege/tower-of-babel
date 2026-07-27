@@ -1,0 +1,15 @@
+# Technical display configuration. No game content (RULES.md section 23).
+# Internal pixel resolution is NOT set here - it is a design decision
+# (EXPERIENCE_DESIGN.md section 3: DESIGN DECISION REQUIRED).
+window:
+  width: 1920
+  height: 1080
+  fullscreen: false
+  vsync: true
+# Camera rendering defaults (PROVISIONAL greybox tuning, Phase 3). Zoom scales
+# world pixels to screen pixels; follow_stiffness is the exponential follow
+# rate (higher = tighter). Final values follow the internal-resolution
+# decision (EXPERIENCE_DESIGN.md section 3: DESIGN DECISION REQUIRED).
+camera:
+  zoom: 3.0
+  follow_stiffness: 8.0

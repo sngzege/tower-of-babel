@@ -1,0 +1,16 @@
+# PROVISIONAL - structure only, not approved content.
+# kind vocabulary follows GAMEPLAY_DESIGN.md section 7 categories (provisional).
+schema: item
+version: 1
+fields:
+  id:     {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
+  name:   {type: str, required: true}
+  kind:   {type: str, enum: [consumable, boon, trophy, quest, material], default: consumable}
+  tags:   {type: list, item: str, default: []}
+  effect: {type: dict}
+  price:  {type: int, min: 0, default: 0}
+example:
+  id: example_item
+  name: Example Item
+  kind: consumable
+  price: 10

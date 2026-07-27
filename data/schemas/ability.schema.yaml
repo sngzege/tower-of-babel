@@ -1,0 +1,20 @@
+# PROVISIONAL - structure only, not approved content.
+# Abilities are unlockable, rank-upgradable, loadout-based (GAMEPLAY_DESIGN.md section 6).
+schema: ability
+version: 1
+fields:
+  id:          {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
+  name:        {type: str, required: true}
+  description: {type: str}
+  tags:        {type: list, item: str, default: []}   # synergy keywords (section 19)
+  cooldown:    {type: float, min: 0}
+  cost:        {type: int, min: 0, default: 0}
+  rank_max:    {type: int, min: 1, default: 1}
+  requires:    {type: list, item: str, default: []}   # unlock requirements
+  effects:     {type: list, item: dict, default: []}  # interpreted by combat systems
+example:
+  id: example_ability
+  name: Example Ability
+  tags: [example_tag]
+  cooldown: 1.5
+  effects: []

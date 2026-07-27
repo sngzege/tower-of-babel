@@ -1,0 +1,12 @@
+# PROVISIONAL - structure only, not approved content (D13/D14 pending).
+schema: progression
+version: 1
+fields:
+  id:     {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
+  kind:   {type: str}   # xp_curve / mastery / milestone (provisional vocabulary)
+  tags:   {type: list, item: str, default: []}
+  levels: {type: list, item: dict, default: []}
+example:
+  id: example_progression
+  kind: xp_curve
+  levels: []

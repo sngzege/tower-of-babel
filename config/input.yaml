@@ -1,0 +1,29 @@
+# Technical input configuration. No game content (RULES.md section 23).
+# Abstract actions are locked by design (DESIGN_DECISIONS.md L5); the raw
+# control bindings below are technical defaults and fully remappable.
+# Gameplay actions must never depend on physical keys directly.
+remappable: true
+gamepad:
+  enabled: true
+  deadzone: 0.2
+bindings:
+  keyboard:
+    primary_attack: mouse_left
+    class_skill: mouse_right
+    skill_1: q
+    skill_2: e
+    ultimate: r
+    aura: t
+    dodge: space
+    interact: f
+    pause: escape
+  gamepad:  # PROVISIONAL defaults - the locked layout is mouse/keyboard-first (L5)
+    primary_attack: right_trigger
+    class_skill: left_trigger
+    skill_1: button_x
+    skill_2: button_y
+    ultimate: right_shoulder
+    aura: left_shoulder
+    dodge: button_a
+    interact: button_b
+    pause: start

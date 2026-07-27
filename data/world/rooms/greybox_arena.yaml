@@ -1,0 +1,25 @@
+# Greybox test arena (Phase 3): hand-authored, NOT procedural. Exists purely
+# to evaluate game feel (movement, dodge, collision, camera). Units: world px.
+# weight 0 keeps it out of any future procedural room selection.
+id: greybox_arena
+kind: start
+name: Greybox Test Arena
+tags: [greybox, playtest]
+weight: 0
+min_depth: 0
+size: {width: 960, height: 608}        # 60x38 tiles of 16px
+player_spawn: {x: 480, y: 304}         # room center
+solids:
+  # Border walls (16px thick).
+  - {x: 0,   y: 0,   w: 960, h: 16}    # top
+  - {x: 0,   y: 592, w: 960, h: 16}    # bottom
+  - {x: 0,   y: 16,  w: 16,  h: 576}   # left
+  - {x: 944, y: 16,  w: 16,  h: 576}   # right
+  # Blocks: large enough to force routing around them.
+  - {x: 240, y: 160, w: 64,  h: 64}
+  - {x: 656, y: 384, w: 64,  h: 64}
+  # Pillars: tight dodge gaps (48px between pillar and block/wall).
+  - {x: 464, y: 128, w: 32,  h: 32}
+  - {x: 464, y: 448, w: 32,  h: 32}
+  # Low wall segment: slide-along test for move-and-slide.
+  - {x: 160, y: 400, w: 128, h: 16}

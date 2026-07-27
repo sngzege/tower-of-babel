@@ -1,0 +1,5 @@
+# Development-environment configuration. No game content (RULES.md section 23).
+log_level: INFO
+data:
+  validate_on_load: true   # schema-validate content during development loads
+  hot_reload: false        # reserved; requires the engine phase first

@@ -1,0 +1,5 @@
+# Technical game configuration. No game content (RULES.md section 23).
+# Gameplay-rule values (death penalty, extraction, run saving) are DESIGN
+# DECISIONS (D4/D5/D15) and intentionally absent until approved.
+save_slot: 1
+language: en

@@ -1,0 +1,8 @@
+# Minimal pre-commit configuration.
+# Tooling per IMPLEMENTATION_PLAN.md Step 00.2 (ruff). Extend only with developer approval.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+      - id: ruff-format
