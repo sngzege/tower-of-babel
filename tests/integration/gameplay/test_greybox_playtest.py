@@ -99,9 +99,15 @@ def test_player_moves_and_camera_follows() -> None:
 def test_player_cannot_cross_walls() -> None:
     scene = _build_scene()
     room = scene.room
-    scene.player.body.teleport(room.width - 100.0, room.height / 2.0)
+    # Teleport to upper-right area where the right wall still exists
+    # (the right wall has a door gap at y=256..352).
+    scene.player.body.teleport(room.width - 100.0, 100.0)
     _run(scene, ActionFrame(move_x=1.0), 600)
-    right_wall = room.solids[3]  # right border wall from greybox_arena.yaml
+    # Find the right-wall solid closest to x=944 (top or bottom segment).
+    right_wall = next(
+        s for s in room.solids
+        if s.x >= 900.0 and s.y < scene.player.body.y + 200.0
+    )
     assert scene.player.body.box.right <= right_wall.left + 1e-6
     assert scene.world.query(scene.player.body.box, layers=[CollisionLayer.WORLD]) == []
 

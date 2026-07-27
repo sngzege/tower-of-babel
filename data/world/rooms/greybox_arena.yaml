@@ -10,11 +10,12 @@ min_depth: 0
 size: {width: 960, height: 608}        # 60x38 tiles of 16px
 player_spawn: {x: 480, y: 304}         # room center
 solids:
-  # Border walls (16px thick).
+  # Border walls (16px thick) — right wall has a door gap at y=256..352.
   - {x: 0,   y: 0,   w: 960, h: 16}    # top
   - {x: 0,   y: 592, w: 960, h: 16}    # bottom
   - {x: 0,   y: 16,  w: 16,  h: 576}   # left
-  - {x: 944, y: 16,  w: 16,  h: 576}   # right
+  - {x: 944, y: 16,  w: 16,  h: 240}   # right wall top segment
+  - {x: 944, y: 352, w: 16,  h: 240}   # right wall bottom segment
   # Blocks: large enough to force routing around them.
   - {x: 240, y: 160, w: 64,  h: 64}
   - {x: 656, y: 384, w: 64,  h: 64}
@@ -23,3 +24,13 @@ solids:
   - {x: 464, y: 448, w: 32,  h: 32}
   # Low wall segment: slide-along test for move-and-slide.
   - {x: 160, y: 400, w: 128, h: 16}
+
+# Door to the combat room (right side, in the wall gap).
+doors:
+  - x: 944
+    y: 256
+    w: 16
+    h: 96
+    target_room: greybox_combat
+    spawn_x: 80
+    spawn_y: 304

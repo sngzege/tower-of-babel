@@ -15,19 +15,40 @@ from typing import Any
 from physics.collision import AABB, CollisionWorld, StaticCollider
 
 
+@dataclass(frozen=True)
+class Door:
+    """An exit/entrance connecting rooms.
+
+    ``box`` is the world-space AABB of the door (player must overlap to
+    trigger transition). ``target_room`` is the room id this door leads to.
+    ``target_spawn`` is where the player appears in the target room.
+    """
+
+    box: AABB
+    target_room: str
+    target_spawn: tuple[float, float]
+
+
 class RoomError(ValueError):
     """Raised when a room document is missing or malformed."""
 
 
 @dataclass(frozen=True)
 class Room:
-    """Static room geometry in world pixels (origin at top-left corner)."""
+    """Static room geometry in world pixels (origin at top-left corner).
+
+    Phase 6 additions:
+      - ``doors``: list of Door objects defining exits to adjacent rooms.
+      - ``kind``: room kind for procedural selection (start/combat/boss/...).
+    """
 
     room_id: str
+    kind: str
     width: float
     height: float
     player_spawn: tuple[float, float]
     solids: tuple[AABB, ...]
+    doors: tuple[Door, ...] = ()
 
     @property
     def bounds(self) -> AABB:
@@ -93,10 +114,45 @@ class Room:
             raise RoomError(
                 f"invalid room document '{source}': " + "; ".join(sorted(set(problems)))
             )
+
+        # Parse doors.
+        raw_doors = document.get("doors", [])
+        if not isinstance(raw_doors, list):
+            problems.append("'doors' must be a list")
+            raw_doors = []
+        doors: list[Door] = []
+        for index, entry in enumerate(raw_doors):
+            if not isinstance(entry, dict):
+                problems.append(f"'doors[{index}]' must be a mapping")
+                continue
+            door_x = read_number(entry.get("x"), f"doors[{index}].x")
+            door_y = read_number(entry.get("y"), f"doors[{index}].y")
+            door_w = read_number(entry.get("w"), f"doors[{index}].w")
+            door_h = read_number(entry.get("h"), f"doors[{index}].h")
+            target_room = str(entry.get("target_room", ""))
+            spawn_x = read_number(entry.get("spawn_x"), f"doors[{index}].spawn_x")
+            spawn_y = read_number(entry.get("spawn_y"), f"doors[{index}].spawn_y")
+            doors.append(
+                Door(
+                    box=AABB(door_x, door_y, door_w, door_h),
+                    target_room=target_room,
+                    target_spawn=(spawn_x, spawn_y),
+                )
+            )
+
+        if problems:
+            raise RoomError(
+                f"invalid room document '{source}': " + "; ".join(sorted(set(problems)))
+            )
+
+        kind = str(document.get("kind", "combat"))
+
         return cls(
             room_id=source,
+            kind=kind,
             width=width,
             height=height,
             player_spawn=(spawn_x, spawn_y),
             solids=tuple(solids),
+            doors=tuple(doors),
         )

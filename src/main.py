@@ -91,6 +91,7 @@ def main(argv: list[str] | None = None) -> int:
             world=world,
             camera=camera,
             enemies=enemies,
+            registry=registry,
         ),
         initial=True,
     )

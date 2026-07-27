@@ -1,0 +1,31 @@
+# Greybox combat room (Phase 6 — room transition testing).
+# Connected to greybox_arena via the door on the right wall.
+# This room has enemies for combat testing after transitioning.
+id: greybox_combat
+kind: combat
+name: Greybox Combat Room
+tags: [greybox, playtest]
+weight: 0
+min_depth: 0
+size: {width: 960, height: 608}
+player_spawn: {x: 80, y: 304}        # left side, near the entry door
+doors:
+  # Door back to the starting arena (left wall).
+  - x: 0
+    y: 256
+    w: 32
+    h: 96
+    target_room: greybox_arena
+    spawn_x: 928
+    spawn_y: 304
+solids:
+  # Border walls (16px thick).
+  - {x: 0,   y: 0,   w: 960, h: 16}    # top
+  - {x: 0,   y: 592, w: 960, h: 16}    # bottom
+  - {x: 0,   y: 16,  w: 16,  h: 576}   # left
+  - {x: 944, y: 16,  w: 16,  h: 576}   # right
+  # Interior obstacles.
+  - {x: 240, y: 160, w: 64,  h: 64}
+  - {x: 656, y: 384, w: 64,  h: 64}
+  - {x: 464, y: 128, w: 32,  h: 32}
+  - {x: 464, y: 448, w: 32,  h: 32}

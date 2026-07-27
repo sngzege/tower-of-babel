@@ -18,6 +18,7 @@ Phase 4+5 additions:
 
 from __future__ import annotations
 
+from core.content_registry import ContentRegistry
 from core.enums import SceneID
 from engine.scene import Scene
 from gameplay.combat.combat_system import (
@@ -36,6 +37,7 @@ from physics.collision import AABB, CollisionWorld
 from rendering.camera import Camera
 from rendering.renderer import Color, Renderer
 from world.room import Room
+from world.room_manager import RoomManager
 
 _FLOOR_COLOR: Color = (34, 34, 40)
 _WALL_COLOR: Color = (92, 92, 112)
@@ -73,8 +75,10 @@ class PlaytestScene(Scene):
         room: Room,
         world: CollisionWorld,
         camera: Camera,
+        registry: ContentRegistry | None = None,
         enemies: list[tuple[Enemy, SimpleAI]] | None = None,
         controller: PlayerController | None = None,
+        room_id: str = "greybox_arena",
     ) -> None:
         self.player = player
         self.room = room
@@ -84,6 +88,23 @@ class PlaytestScene(Scene):
         self._aim = AimController(screen_to_world=camera.screen_to_world)
         self._combat = CombatSystem(events=None)
         self._enemies: list[tuple[Enemy, SimpleAI]] = enemies or []
+
+        # Phase 6: Room manager for transitions.
+        self._room_manager: RoomManager | None = None
+        if registry is not None:
+            self._room_manager = RoomManager(registry=registry)
+            self._room_manager.on_transition(self._on_room_transition)
+            self._room_manager.current_room = room
+
+    def _on_room_transition(
+        self, new_room: Room, spawn_x: float, spawn_y: float
+    ) -> None:
+        """Callback fired when the player walks through a door."""
+        self.room = new_room
+        self.world = new_room.build_collision_world()
+        self.player.body.teleport(spawn_x, spawn_y)
+        self.camera.center_on(spawn_x, spawn_y)
+        self.camera.set_bounds(self.room.bounds)
 
     def enter(self) -> None:
         spawn_x, spawn_y = self.room.player_spawn
@@ -187,6 +208,12 @@ class PlaytestScene(Scene):
                     self.player.on_hit(0.15)
                     if self.player.health <= 0.0:
                         self.player.die()
+
+        # Check room transition (Phase 6).
+        if self._room_manager is not None:
+            door = self._room_manager.check_transition(self.player.body.box)
+            if door is not None:
+                self._room_manager.transition(door)
 
         self.camera.follow(self.player.body.x, self.player.body.y, dt)
 
