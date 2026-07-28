@@ -24,7 +24,8 @@
 - **Phase 8 — COMPLETE (2026-07-28):** vertical slice / playable core loop — Boss entity + BossAI, boss arena, stage→boss connection, victory/death flows. Suite: **285 passed + 1 skip**.
 - **Phase 9 — COMPLETE (2026-07-28):** Build System Foundation — BuildState, weapons (sword/spear/axe), boons (11 prototype), tag-based modifiers, ability/passive data architecture, reward→build pipeline, weapon changes attack behavior. Suite: **301 passed + 1 skip**.
 - **Phase 10 — COMPLETE (2026-07-28):** Build System Integration — Ability executors wired into Player (Q/E/R/T slots), ability activation from input layer, passive modifier effects applied to BuildState, class loadout system (Warrior with weapon/abilities/passives), run weapon upgrades, expanded reward pipeline for ability/passive/upgrade acquisition, build persistence across room/floor transitions. Suite: **306 passed + 1 skip**. Details: CHANGELOG.md, STATUS.md.
-- **Next phase: Phase 11 — CONTENT EXPANSION** (after Phase 10 complete).
+- **Phase 11 — COMPLETE (2026-07-28):** Stabilization & Readability — Full system audit (GREYBOX_AUDIT.md), collision-aware knockback, damage numbers, enemy damage flash, improved HUD with text labels for weapon/room/Fury/abilities, multi-hit prevention (0.05s hit_invuln), 360-degree attack verification tests, Shield Bash radial knockback/buff effects, text rendering in Renderer, fixed encounter overwrite bug, fixed reward re-offer loop, fixed restart loadout re-application. Suite: **309 passed + 1 skip**. Details: CHANGELOG.md.
+- **Next phase: Phase 12 — CONTENT EXPANSION** (after Phase 11 complete).
 
 ---
 

@@ -4,13 +4,14 @@
 > developer) can resume work without re-reading the whole project.
 > **Rule:** whoever advances the project updates this file in the same
 > commit (IMPLEMENTATION_PLAN.md snapshot + CHANGELOG.md too).
-> Last updated: **2026-07-28** (Phase 10 — Build System Integration COMPLETE).
+> Last updated: **2026-07-28** (Phase 11 — Stabilization & Readability COMPLETE).
 
 ## 1. Where we are
 
 - **Phase 0-8:** COMPLETE.
 - **Phase 9 — Build System Foundation:** COMPLETE.
 - **Phase 10 — Build System Integration:** COMPLETE.
+- **Phase 11 — Stabilization & Readability:** COMPLETE (2026-07-28).
 
 ## 2. What is playable right now
 
@@ -23,9 +24,18 @@
 - Left Click: primary attack
 - Space: dodge (2 charges, 1.5s regen)
 - **Q**: Charge (dash forward dealing damage)
-- **E**: Shield Bash (close-range knockback + temp armor placeholder)
+- **E**: Shield Bash (close-range knockback + temp armor)
 - **R**: Whirlwind (AoE spin attack)
-- **T**: War Cry (temporary damage buff, 5s duration)
+- **T**: War Cry (toggle damage buff, 30% while ON)
+
+### HUD
+- Top-left: HP bar with numeric text, weapon name, room/floor info, Fury status, enemy count
+- Top-right: Ability cooldown bars with text labels (Q/E/R/T — READY/cooldown seconds/ON or OFF)
+- Damage numbers float up from hit targets
+- Enemies flash white briefly when hit
+- Knockback is collision-aware (stops at walls), both directional and radial
+- Rewards show weapon/boon names with direction hint (←1 ↓2 →3)
+- Game-over screen shows title, stats summary, click-to-continue hint
 
 ### Run lifecycle
 - Seeded stage: 3 procedural floors + 1 boss floor (4 floors total)
@@ -44,12 +54,12 @@
 - **Class loadout**: Warrior starts with sword + 4 abilities + 1 passive
 - **Build reset**: All temporary state cleared on death/restart
 
-## 3. Verification (as of Phase 8)
+## 3. Verification (as of Phase 11)
 
 ```text
-uv run pytest -q                                -> 285 passed, 1 skipped
-uv run ruff check src tests tools scripts       -> clean
-uv run python -m mypy src                       -> clean (122 files)
+uv run pytest -q                                -> 309 passed, 1 skipped
+uv run ruff check src tests tools scripts       -> 73 errors (72 line-too-long, 1 unused)
+uv run python -m mypy src                       -> clean (128 files)
 uv run python tools/data_validation/validate_data.py -> OK
 uv run python scripts/run.py --headless --frames 300 --log-level WARNING -> exit 0
 ```
@@ -87,7 +97,7 @@ uv run python scripts/run.py --headless --frames 300 --log-level WARNING -> exit
 ## 6. How to resume (for the next agent)
 
 1. Read RULES.md, this file, IMPLEMENTATION_PLAN.md.
-2. Next phase: Build System (Phase 8 BUILD SYSTEM — see IMPLEMENTATION_PLAN.md).
+2. Next phase: Content Expansion (Phase 11 — see IMPLEMENTATION_PLAN.md).
 3. Follow the AI DEVELOPMENT LOOP (end of IMPLEMENTATION_PLAN.md).
 4. Before finishing: run the five verification commands; update STATUS.md, plan, and CHANGELOG.md; commit per RULES.md section 19; push to remote.
 
@@ -100,3 +110,6 @@ uv run python scripts/run.py --headless --frames 300 --log-level WARNING -> exit
 - No animation/VFX/sound for boss phase transition.
 - Boss rewards: currently no special boss reward or trophy drop (just stage completion; rewards from combat rooms earned during traversal are preserved).
 - No meta-progression (village, persistent upgrades, currency).
+- Shield Bash defense buff is a visual placeholder only (no actual damage reduction implemented).
+- Ruff has 73 errors (72 line-too-long, 1 unused-variable — mostly cosmetic).
+- Floor traversal in integration tests requires walking through doors; a more reliable programmatic navigation helper would improve test stability.

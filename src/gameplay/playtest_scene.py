@@ -160,6 +160,8 @@ class PlaytestScene(Scene):
         self._enemy_flash_timers: dict[str, float] = {}
         self._temp_knockback_origin: tuple[float, float] | None = None
         self._temp_knockback_force: float = 0.0
+        # Track reward state to prevent re-offering on the same room.
+        self._reward_offered_in_room: bool = False
 
     @property
     def enemies(self) -> tuple[tuple[Enemy, SimpleAI], ...]:
@@ -347,9 +349,12 @@ class PlaytestScene(Scene):
         self.player.body.teleport(sx, sy)
         self.camera.center_on(sx, sy)
         self.camera.set_bounds(self.room.bounds)
-        self._spawn_room_enemies()
+        # Create fresh encounter BEFORE spawning enemies so
+        # _spawn_room_enemies can activate it.
         self._encounter = RoomEncounter()
+        self._spawn_room_enemies()
         self._reward_pending = False
+        self._reward_offered_in_room = False
         self._pending_buffs.clear()
         self._damage_numbers.clear()
         self._enemy_flash_timers.clear()
@@ -410,6 +415,8 @@ class PlaytestScene(Scene):
     def _restart_run(self) -> None:
         self.player.reset()
         self._run.reset()
+        # Re-apply class loadout after reset.
+        self._apply_class_loadout("warrior")
         self._pending_buffs.clear()
         self._game_over_message = ""
         self._pending_weapon_choice = []
@@ -432,6 +439,7 @@ class PlaytestScene(Scene):
         self._encounter = RoomEncounter()
         self._reward_options = []
         self._reward_pending = False
+        self._reward_offered_in_room = False
         self.stage_completed = False
         self._pending_buffs.clear()
 
@@ -805,9 +813,10 @@ class PlaytestScene(Scene):
                         self._run.on_death()
 
         # Room cleared → reward or weapon choice.
-        if self._encounter.cleared and not self._reward_pending and self._boss is None:
+        if self._encounter.cleared and not self._reward_pending and self._boss is None and not self._reward_offered_in_room:
             self._run.on_room_clear()
-            # On first room clear, offer weapon choice.
+            self._reward_offered_in_room = True
+            # On first room clear (unarmed), offer weapon choice.
             if self._run.build.weapon_id == "unarmed" and not self._pending_weapon_choice:
                 self._pending_weapon_choice = list(PROTOTYPE_WEAPONS)
                 self._reward_pending = True
