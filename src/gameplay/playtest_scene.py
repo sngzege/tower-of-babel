@@ -1194,8 +1194,11 @@ class PlaytestScene(Scene):
         if total_alive > 0:
             renderer.draw_text(f"Enemies: {total_alive}", hp_bar_x, ri_y + 36, (220, 160, 160), 12)
 
-        # === ABILITY BAR (top-right, large) ===
-        slot_w, slot_h = 240, 36
+        # === ABILITY BAR (top-right, responsive width) ===
+        # Slot width is proportional to viewport, clamped to readable range.
+        max_slot_w = max(160, min(280, w // 5))
+        slot_w = min(max_slot_w, w - 40)  # leave 20px margin on each side
+        slot_h = 36
         slot_start_x = w - slot_w - 20
         slot_start_y = 20
         slot_labels = ["Q", "E", "R", "T"]
@@ -1217,7 +1220,7 @@ class PlaytestScene(Scene):
             # Background slot.
             renderer.draw_rect((sx, sy, slot_w, slot_h), (25, 25, 35))
 
-            # Key label (Q/E/R/T circle).
+            # Key label (Q/E/R/T).
             key_color = (200, 200, 220)
             renderer.draw_text(f" [{label}] ", sx + 6, sy + 8, key_color, 14)
 
@@ -1225,31 +1228,48 @@ class PlaytestScene(Scene):
             ability_name = ability_names.get(slot_key, "")
             renderer.draw_text(ability_name, sx + 44, sy + 8, (200, 200, 220), 14)
 
-            # Cooldown / toggle state.
+            # Cooldown bar — use remaining slot width after labels.
+            label_end = sx + 44 + len(ability_name) * 8 + 8  # rough estimate
+            cd_x = label_end
+            cd_w = slot_w - (cd_x - sx) - 60  # leave 60px for text
+            if cd_w < 30:
+                cd_w = 30  # minimum bar width
+            cd_y = sy + 6
+            cd_h = slot_h - 12
+
             if exec_.data.ability_type == "toggle":
+                # Toggle ON/OFF indicator.
+                toggle_x = sx + slot_w - 80
+                toggle_w = 74
+                if toggle_x + toggle_w > sx + slot_w - 2:
+                    toggle_w = max(40, sx + slot_w - 2 - toggle_x)
                 if exec_.state.toggle_on:
-                    renderer.draw_rect((sx + slot_w - 80, sy + 4, 74, slot_h - 8), (220, 200, 60))
-                    renderer.draw_text("ON", sx + slot_w - 62, sy + 8, (255, 255, 200), 14)
+                    renderer.draw_rect((toggle_x, sy + 4, toggle_w, slot_h - 8),
+                                       (220, 200, 60))
+                    tx = toggle_x + (toggle_w - 22) // 2
+                    renderer.draw_text("ON", tx, sy + 8, (255, 255, 200), 14)
                 else:
-                    renderer.draw_rect((sx + slot_w - 80, sy + 4, 74, slot_h - 8), (50, 50, 50))
-                    renderer.draw_text("OFF", sx + slot_w - 62, sy + 8, (150, 150, 150), 14)
+                    renderer.draw_rect((toggle_x, sy + 4, toggle_w, slot_h - 8),
+                                       (50, 50, 50))
+                    tx = toggle_x + (toggle_w - 26) // 2
+                    renderer.draw_text("OFF", tx, sy + 8, (150, 150, 150), 14)
             else:
-                frac = exec_.ready_fraction
-                cd_w = slot_w - 120
-                cd_x = sx + 120
-                cd_y = sy + 6
-                cd_h = slot_h - 12
+                # Cooldown bar.
                 renderer.draw_rect((cd_x, cd_y, cd_w, cd_h), (40, 40, 50))
+                frac = exec_.ready_fraction
                 if frac < 1.0:
                     fill_w = max(2, int(cd_w * frac))
-                    # Gradient from blue (just activated) to green (almost ready).
                     fill_color = (60, 80 + int(160 * frac), 200 - int(140 * frac))
                     renderer.draw_rect((cd_x + 1, cd_y + 1, fill_w, cd_h - 2), fill_color)
                     cd_left = exec_.data.cooldown * (1.0 - frac)
-                    renderer.draw_text(f"{cd_left:.1f}s", cd_x + cd_w + 6, sy + 8, (160, 200, 255), 12)  # noqa: E501
+                    text_x = cd_x + cd_w + 4
+                    if text_x + 50 < sx + slot_w:
+                        renderer.draw_text(f"{cd_left:.1f}s", text_x, sy + 8, (160, 200, 255), 12)
                 else:
                     renderer.draw_rect((cd_x + 1, cd_y + 1, cd_w - 2, cd_h - 2), (60, 200, 60))
-                    renderer.draw_text("READY", cd_x + cd_w + 6, sy + 8, (100, 255, 100), 12)
+                    text_x = cd_x + cd_w + 4
+                    if text_x + 50 < sx + slot_w:
+                        renderer.draw_text("READY", text_x, sy + 8, (100, 255, 100), 12)
 
         # Reward overlay.
         if self._reward_pending:
