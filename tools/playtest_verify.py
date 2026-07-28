@@ -64,7 +64,7 @@ def test_content_loads() -> None:
         assert len(doc.get("effects", [])) >= 1, f"Boon '{bid}' has no effects"
 
     print(f"OK: All {len(categories)} categories loaded successfully")
-    print(f"OK: Warrior class has {len(abilities)} abilities, {len(warrior.get('starting_passives', []))} passives")
+    print(f"OK: Warrior class has {len(abilities)} abilities, {len(warrior.get('starting_passives', []))} passives")  # noqa: E501
     print("OK: All referenced IDs validated")
 
 

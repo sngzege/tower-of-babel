@@ -217,7 +217,7 @@ class Player:
 
         # Handle ability intents.
         for action_name in intent.ability_pressed:
-            slot_key = self._ability_slot_map.get(action_name.value if hasattr(action_name, 'value') else str(action_name))
+            slot_key = self._ability_slot_map.get(action_name.value if hasattr(action_name, 'value') else str(action_name))  # noqa: E501
             if slot_key and slot_key in self.ability_executors:
                 self.ability_executors[slot_key].activate()
         for executor in self.ability_executors.values():

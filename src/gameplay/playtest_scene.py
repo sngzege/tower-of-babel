@@ -53,9 +53,6 @@ _logger = get_logger(__name__)
 
 _FLOOR_COLOR: Color = (34, 34, 40)
 _WALL_COLOR: Color = (92, 92, 112)
-_FACING_COLOR: Color = (245, 245, 245)
-_FACING_MARKER_SIZE = 6.0
-_FACING_MARKER_DISTANCE = 12.0
 _ATTACK_HITBOX_COLOR: Color = (255, 120, 50)
 _ENEMY_COLOR: Color = (200, 60, 60)
 _ENEMY_ATTACK_COLOR: Color = (255, 80, 80)
@@ -72,8 +69,11 @@ _BOSS_HEALTH_BAR_WIDTH = 80.0
 _BOSS_HEALTH_BAR_HEIGHT = 6.0
 _BOSS_HEALTH_BAR_Y_OFFSET = 40.0
 _PHASE_2_COLOR: Color = (255, 60, 60)
-_OVERLAY_BG: Color = (0, 0, 0)
-_TEXT_COLOR: Color = (230, 230, 230)
+_REWARD_COLORS: list[Color] = [
+    (200, 80, 80),
+    (80, 160, 200),
+    (80, 200, 100),
+]
 
 _STATE_COLORS: dict[PlayerState, Color] = {
     PlayerState.IDLE: (190, 190, 215),
@@ -83,12 +83,6 @@ _STATE_COLORS: dict[PlayerState, Color] = {
     PlayerState.DEAD: (90, 90, 90),
 }
 _INVULNERABLE_TINT: Color = (255, 255, 255)
-_YELLOW: Color = (255, 200, 50)
-_REWARD_COLORS: list[Color] = [
-    (200, 80, 80),
-    (80, 160, 200),
-    (80, 200, 100),
-]
 
 PROTOTYPE_WEAPONS = ["warrior_sword", "warrior_spear", "warrior_axe"]
 
@@ -158,10 +152,17 @@ class PlaytestScene(Scene):
         # Phase B: damage number popups and visual feedback.
         self._damage_numbers: list[dict] = []
         self._enemy_flash_timers: dict[str, float] = {}
+        self._enemy_death_fx: dict[str, float] = {}  # enemy_name → timer
         self._temp_knockback_origin: tuple[float, float] | None = None
         self._temp_knockback_force: float = 0.0
         # Track reward state to prevent re-offering on the same room.
         self._reward_offered_in_room: bool = False
+
+        # If enemies were provided directly, activate the encounter.
+        if self._enemies:
+            total = len(self._enemies) + (1 if self._boss is not None else 0)
+            if total > 0:
+                self._encounter.activate(total)
 
     @property
     def enemies(self) -> tuple[tuple[Enemy, SimpleAI], ...]:
@@ -248,9 +249,9 @@ class PlaytestScene(Scene):
             if spd_bonus:
                 modified = replace(modified, cooldown=modified.cooldown / (1.0 + spd_bonus))
             if reach_bonus:
-                modified = replace(modified, hitbox_reach=modified.hitbox_reach * (1.0 + reach_bonus))
+                modified = replace(modified, hitbox_reach=modified.hitbox_reach * (1.0 + reach_bonus))  # noqa: E501
             if spread_bonus:
-                modified = replace(modified, hitbox_spread=modified.hitbox_spread * (1.0 + spread_bonus))
+                modified = replace(modified, hitbox_spread=modified.hitbox_spread * (1.0 + spread_bonus))  # noqa: E501
 
         self.player.attack_executor = self.player.attack_executor.__class__(modified)
         _logger.info("Re-applied weapon with upgrades: %s", weapon_id)
@@ -358,7 +359,8 @@ class PlaytestScene(Scene):
         self._pending_buffs.clear()
         self._damage_numbers.clear()
         self._enemy_flash_timers.clear()
-        self._toggle_states.update({"skill_q": False, "skill_e": False, "skill_r": False, "aura": False})
+        self._enemy_death_fx.clear()
+        self._toggle_states.update({"skill_q": False, "skill_e": False, "skill_r": False, "aura": False})  # noqa: E501
         # Reset toggle executors.
         for executor in self.player.ability_executors.values():
             executor.state.toggle_on = False
@@ -422,7 +424,8 @@ class PlaytestScene(Scene):
         self._pending_weapon_choice = []
         self._damage_numbers.clear()
         self._enemy_flash_timers.clear()
-        self._toggle_states.update({"skill_q": False, "skill_e": False, "skill_r": False, "aura": False})
+        self._enemy_death_fx.clear()
+        self._toggle_states.update({"skill_q": False, "skill_e": False, "skill_r": False, "aura": False})  # noqa: E501
         for executor in self.player.ability_executors.values():
             executor.state.toggle_on = False
         self._temp_ability_hitbox = None
@@ -620,7 +623,7 @@ class PlaytestScene(Scene):
                 if dmg > 0:
                     self._temp_ability_hitbox = (
                         AABB(px - range_val, py - range_val, range_val * 2, range_val * 2),
-                        DamageInstance(value=dmg, types=frozenset(effect.get("damage_types", ["physical"])), source_layer="player_hitbox"),
+                        DamageInstance(value=dmg, types=frozenset(effect.get("damage_types", ["physical"])), source_layer="player_hitbox"),  # noqa: E501
                     )
             elif etype == "knockback":
                 range_val = float(effect.get("range", 60.0))
@@ -629,8 +632,8 @@ class PlaytestScene(Scene):
                     # Radial outward knockback from player position.
                     self._temp_ability_hitbox = (
                         AABB(px - range_val, py - range_val, range_val * 2, range_val * 2),
-                        DamageInstance(value=dmg, types=frozenset(effect.get("damage_types", ["physical"])), source_layer="player_hitbox",
-                                       knockback=(0.0, 0.0)),  # radial — computed per-target in hit resolution
+                        DamageInstance(value=dmg, types=frozenset(effect.get("damage_types", ["physical"])), source_layer="player_hitbox",  # noqa: E501
+                                       knockback=(0.0, 0.0)),  # radial — computed per-target in hit resolution  # noqa: E501
                     )
                     self._temp_knockback_origin = (px, py)
                     self._temp_knockback_force = 300.0
@@ -768,7 +771,7 @@ class PlaytestScene(Scene):
             ents = []
             for e, _ in self._enemies:
                 if e.alive:
-                    ents.append(self._make_combat_entity(e.entity.name, e.body.x, e.body.y, e.hurtbox, e.alive, e, e.invuln_service))
+                    ents.append(self._make_combat_entity(e.entity.name, e.body.x, e.body.y, e.hurtbox, e.alive, e, e.invuln_service))  # noqa: E501
             if self._boss is not None and self._boss.alive:
                 ents.append(self._make_combat_entity(
                     self._boss.entity.name, self._boss.body.x, self._boss.body.y,
@@ -794,6 +797,12 @@ class PlaytestScene(Scene):
                 if hit.result.killed:
                     self._encounter.on_enemy_died()
                     self._run.on_enemy_kill()
+                    # Record death FX for this enemy.
+                    self._enemy_death_fx[hit.target_id] = 0.5
+                    # Spawn death text popup.
+                    self._add_damage_number(
+                        *self._hit_target_pos(hit.target_id), "KILL!", (255, 100, 100),
+                    )
 
         # Resolve enemy hits.
         if all_enemy_hitboxes and self.player.alive:
@@ -813,7 +822,7 @@ class PlaytestScene(Scene):
                         self._run.on_death()
 
         # Room cleared → reward or weapon choice.
-        if self._encounter.cleared and not self._reward_pending and self._boss is None and not self._reward_offered_in_room:
+        if self._encounter.cleared and not self._reward_pending and self._boss is None and not self._reward_offered_in_room:  # noqa: E501
             self._run.on_room_clear()
             self._reward_offered_in_room = True
             # On first room clear (unarmed), offer weapon choice.
@@ -826,7 +835,7 @@ class PlaytestScene(Scene):
                     self._reward_pending = True
 
         # Boss cleared.
-        if self._encounter.cleared and not self._reward_pending and self._boss is not None and not self._boss.alive and self.room.kind == "boss":
+        if self._encounter.cleared and not self._reward_pending and self._boss is not None and not self._boss.alive and self.room.kind == "boss":  # noqa: E501
             self._run.on_room_clear()
             self.stage_completed = True
             self._on_stage_complete()
@@ -837,7 +846,7 @@ class PlaytestScene(Scene):
         if self.stage_completed and not self._run.ended:
             self._run.on_victory()
 
-        if self._stage_manager is not None and not self._reward_pending and not self._is_boss_active():
+        if self._stage_manager is not None and not self._reward_pending and not self._is_boss_active():  # noqa: E501
             door = self._stage_manager.check_transition(self.player.body.box)
             if door is not None:
                 self._stage_manager.transition(door)
@@ -854,7 +863,7 @@ class PlaytestScene(Scene):
         for i in reversed(expired_nums):
             self._damage_numbers.pop(i)
 
-        # Tick enemy flash timers.
+        # Tick flash timers and death FX.
         expired_flashes = []
         for eid, timer in self._enemy_flash_timers.items():
             self._enemy_flash_timers[eid] = timer - dt
@@ -862,6 +871,14 @@ class PlaytestScene(Scene):
                 expired_flashes.append(eid)
         for eid in expired_flashes:
             self._enemy_flash_timers.pop(eid, None)
+
+        expired_death = []
+        for eid, timer in self._enemy_death_fx.items():
+            self._enemy_death_fx[eid] = timer - dt
+            if timer - dt <= 0:
+                expired_death.append(eid)
+        for eid in expired_death:
+            self._enemy_death_fx.pop(eid, None)
 
     def _make_combat_entity(self, eid, bx, by, hurtbox, vulnerable, target, invuln):
         return CombatEntity(
@@ -871,7 +888,7 @@ class PlaytestScene(Scene):
             invuln_service=invuln,
         )
 
-    def _add_damage_number(self, wx: float, wy: float, text: str, color: Color = (255, 255, 200)) -> None:
+    def _add_damage_number(self, wx: float, wy: float, text: str, color: Color = (255, 255, 200)) -> None:  # noqa: E501
         """Add a floating damage number at a world position."""
         self._damage_numbers.append({
             "text": text,
@@ -895,7 +912,7 @@ class PlaytestScene(Scene):
             if kx != 0.0 or ky != 0.0:
                 self._push_entity_with_collision(self._boss, kx * 0.01, ky * 0.01)
 
-    def _apply_radial_knockback(self, target_id: str, origin: tuple[float, float], force: float) -> None:
+    def _apply_radial_knockback(self, target_id: str, origin: tuple[float, float], force: float) -> None:  # noqa: E501
         """Apply radial outward knockback from an origin point."""
         for e, _ai in self._enemies:
             if e.entity.name == target_id and e.alive:
@@ -903,14 +920,14 @@ class PlaytestScene(Scene):
                 dy = e.body.y - origin[1]
                 length = (dx * dx + dy * dy) ** 0.5
                 if length > 1.0:
-                    self._push_entity_with_collision(e, dx / length * force * 0.01, dy / length * force * 0.01)
+                    self._push_entity_with_collision(e, dx / length * force * 0.01, dy / length * force * 0.01)  # noqa: E501
                 break
         if self._boss is not None and self._boss.entity.name == target_id and self._boss.alive:
             dx = self._boss.body.x - origin[0]
             dy = self._boss.body.y - origin[1]
             length = (dx * dx + dy * dy) ** 0.5
             if length > 1.0:
-                self._push_entity_with_collision(self._boss, dx / length * force * 0.01, dy / length * force * 0.01)
+                self._push_entity_with_collision(self._boss, dx / length * force * 0.01, dy / length * force * 0.01)  # noqa: E501
 
     def _push_entity_with_collision(self, entity: Enemy, vx: float, vy: float) -> None:
         """Push an entity with collision awareness — stop at walls."""
@@ -941,10 +958,23 @@ class PlaytestScene(Scene):
             renderer.draw_rect(self.camera.screen_rect(solid), _WALL_COLOR)
 
         for enemy, _ai in self._enemies:
+            # Death FX (show fading marker for dead enemies).
+            death_timer = self._enemy_death_fx.get(enemy.entity.name, 0.0)
+            if death_timer > 0:
+                ratio = max(0.1, death_timer / 0.5)
+                size = int(enemy.body.width * ratio)
+                sx, sy = self.camera.world_to_screen(enemy.body.x, enemy.body.y)
+                offset = size // 2
+                renderer.draw_rect((sx - offset, sy - offset, size, size), (255, 50, 50))
+                cross_size = int(size * 0.7)
+                renderer.draw_rect((sx - cross_size, sy - 1, cross_size * 2, 3), (255, 150, 50))
+                renderer.draw_rect((sx - 1, sy - cross_size, 3, cross_size * 2), (255, 150, 50))
+                continue
+
             if not enemy.alive:
                 continue
             # Damage flash.
-            flash_color = (255, 255, 255) if self._enemy_flash_timers.get(enemy.entity.name, 0) > 0 else _ENEMY_COLOR
+            flash_color = (255, 255, 255) if self._enemy_flash_timers.get(enemy.entity.name, 0) > 0 else _ENEMY_COLOR  # noqa: E501
             renderer.draw_rect(self.camera.screen_rect(enemy.body.box), flash_color)
             ha = enemy.hurtbox.box_at(enemy.body.x, enemy.body.y)
             renderer.draw_rect(self.camera.screen_rect(ha), _ENEMY_HURTBOX_ALPHA)
@@ -989,11 +1019,46 @@ class PlaytestScene(Scene):
 
         # Player.
         pose = self.player.animation_pose
+        px, py = self.player.body.x, self.player.body.y
+        pw, ph = self.player.body.width, self.player.body.height
         color = _STATE_COLORS[pose.state]
         if self.player.invulnerable:
             color = _INVULNERABLE_TINT
-        renderer.draw_rect(self.camera.screen_rect(self.player.body.box), color)
 
+        # Draw player as a directional shape: body rectangle + arrow head.
+        body_rect = self.camera.screen_rect(self.player.body.box)
+        renderer.draw_rect(body_rect, color)
+
+        # Draw an inner border to distinguish from enemies.
+        inner = (body_rect[0] + 2, body_rect[1] + 2, body_rect[2] - 4, body_rect[3] - 4)
+        inner_color = (
+            min(255, color[0] + 40),
+            min(255, color[1] + 40),
+            min(255, color[2] + 60),
+        )
+        renderer.draw_rect(inner, inner_color)
+
+        # Facing arrow: 3 stacked rectangles forming a directional arrow.
+        fx, fy = pose.facing.vector
+        screen_scale = max(1, int(self.camera.zoom * 0.5))
+        for step in range(1, 4):
+            tip_x = int(px + fx * (ph / 2 + step * 5) - 3)
+            tip_y = int(py + fy * (ph / 2 + step * 5) - 3)
+            arr_size = max(2, 8 - step * 1)
+            sx, sy = self.camera.world_to_screen(tip_x, tip_y)
+            renderer.draw_rect((sx, sy, arr_size * screen_scale, arr_size * screen_scale), (255, 255, 255))  # noqa: E501
+
+        # Dodge indicator (small trail when dodging).
+        if pose.state is PlayerState.DODGE:
+            trail_color = (255, 255, 100)
+            for t in range(1, 4):
+                tx = int(px - fx * t * 6)
+                ty = int(py - fy * t * 6)
+                ts = max(1, int(6 - t))
+                sx, sy = self.camera.world_to_screen(tx, ty)
+                renderer.draw_rect((sx, sy, ts * screen_scale, ts * screen_scale), trail_color)
+
+        # Attack hitbox visualization (debug).
         if self.player.attack_executor.hitbox_active():
             ax, ay = self.player.aim_vector
             hb = self.player.attack_executor.hitbox_for(
@@ -1002,114 +1067,166 @@ class PlaytestScene(Scene):
             if hb is not None:
                 renderer.draw_rect(self.camera.screen_rect(hb), _ATTACK_HITBOX_COLOR)
 
-        fx, fy = pose.facing.vector
-        marker = AABB(
-            self.player.body.x + fx * _FACING_MARKER_DISTANCE - _FACING_MARKER_SIZE / 2.0,
-            self.player.body.y + fy * _FACING_MARKER_DISTANCE - _FACING_MARKER_SIZE / 2.0,
-            _FACING_MARKER_SIZE, _FACING_MARKER_SIZE,
-        )
-        renderer.draw_rect(self.camera.screen_rect(marker), _FACING_COLOR)
-
         # Damage numbers (world → screen).
         for dn in self._damage_numbers:
             sx, sy = self.camera.world_to_screen(dn["wx"], dn["wy"])
-            alpha = max(0.2, min(1.0, dn["timer"] / 0.5))
-            # Fade from yellow to white.
-            r = int(255 * alpha)
-            g = int(255 * alpha)
-            b = int(200 * alpha)
-            renderer.draw_text(dn["text"], int(sx), int(sy), (min(255, r), min(255, g), min(255, b)))
+            alpha = max(0.3, min(1.0, dn["timer"] / 0.5))
+            r = min(255, int(255 / max(0.3, alpha)))
+            g = min(255, int(200 / max(0.3, alpha)))
+            b = min(255, int(100 / max(0.3, alpha)))
+            renderer.draw_text(dn["text"], int(sx), int(sy), (r, g, b), 14)
 
-        # Player HP bar (top-left).
+        # === HP BAR (top-left, larger) ===
         w, h = renderer.size
-        hp_ratio = self.player.health / self.player.stats.max_health
-        hp_bg_w, hp_bg_h = 150, 20
-        renderer.draw_rect((10, 10, hp_bg_w, hp_bg_h), (50, 20, 20))
+        hp_bar_x, hp_bar_y = 20, 20
+        hp_bar_w, hp_bar_h = 220, 28
+        hp_ratio = max(0.0, min(1.0, self.player.health / self.player.stats.max_health))
+
+        # HP bar background.
+        renderer.draw_rect((hp_bar_x, hp_bar_y, hp_bar_w, hp_bar_h), (40, 20, 20))
+        # HP bar fill.
         if hp_ratio > 0:
-            hp_fg_w = int((hp_bg_w - 4) * hp_ratio)
-            hp_color = (80, 200, 80) if hp_ratio > 0.3 else (200, 80, 80)
-            renderer.draw_rect((12, 12, hp_fg_w, hp_bg_h - 4), hp_color)
+            fill_w = int((hp_bar_w - 4) * hp_ratio)
+            hp_fill_color = (80, 220, 80) if hp_ratio > 0.3 else (220, 60, 60) if hp_ratio > 0.15 else (180, 40, 40)  # noqa: E501
+            renderer.draw_rect((hp_bar_x + 2, hp_bar_y + 2, fill_w, hp_bar_h - 4), hp_fill_color)
         # HP text.
-        renderer.draw_text(f"HP {int(self.player.health)}/{int(self.player.stats.max_health)}", 12, 12, (230, 230, 230), 10)
+        hp_text = f"HP {int(self.player.health)}/{int(self.player.stats.max_health)}"
+        renderer.draw_text(hp_text, hp_bar_x + 8, hp_bar_y + 6, (255, 255, 255), 14)
 
-        # Weapon name (below HP).
-        weapon_name = self._run.build.weapon_id.replace("warrior_", "").title() if self._run.build.weapon_id != "unarmed" else "Unarmed"
-        renderer.draw_text(f"Weapon: {weapon_name}", 12, 34, (200, 200, 200), 10)
+        # Dodge charges indicator (below HP bar).
+        dodge_info = f"Dodge: {self.player.dodge_charges.current}/{self.player.dodge_charges.max_charges}"  # noqa: E501
+        renderer.draw_text(dodge_info, hp_bar_x, hp_bar_y + hp_bar_h + 4, (200, 200, 100), 12)
 
-        # Room info (below weapon).
-        room_info = f"Room: {self.room.kind} | Floor {self._stage_manager.floor_index + 1}/{len(self._stage_manager.stage_data.floors)}" if self._stage_manager else self.room.kind
-        renderer.draw_text(room_info, 12, 50, (160, 160, 180), 10)
+        # === BUILD INFO (left side, below HP) ===
+        bi_y = hp_bar_y + hp_bar_h + 22
+        weapon_name = self._run.build.weapon_id.replace("warrior_", "").title() if self._run.build.weapon_id != "unarmed" else "Unarmed"  # noqa: E501
+        renderer.draw_text(f"Weapon: {weapon_name}", hp_bar_x, bi_y, (220, 200, 180), 12)
 
-        # Fury status (below room info).
+        bi_y += 18
+        if self._run.build.passive_ids:
+            passives_str = ", ".join(p.replace("_", " ").title() for p in self._run.build.passive_ids)  # noqa: E501
+            renderer.draw_text(f"Passives: {passives_str}", hp_bar_x, bi_y, (180, 220, 200), 12)
+
+        bi_y += 18
+        # Fury status.
         if self._run.build._fury_active:
-            renderer.draw_text("FURY ACTIVE (+15% DMG)", 12, 66, (255, 180, 50), 10)
+            renderer.draw_text("⚡ FURY ACTIVE (+15% DMG)", hp_bar_x, bi_y, (255, 200, 50), 12)
 
-        # Enemy count (below fury).
+        # === ROOM INFO (below build info) ===
+        ri_y = hp_bar_y + hp_bar_h + 88
+        room_label = self.room.kind.upper() if self.room.kind else "UNKNOWN"
+        renderer.draw_text(f"[ {room_label} ]", hp_bar_x, ri_y, (180, 180, 200), 12)
+        if self._stage_manager:
+            floor_str = f"Floor {self._stage_manager.floor_index + 1}/{len(self._stage_manager.stage_data.floors)}"  # noqa: E501
+            renderer.draw_text(floor_str, hp_bar_x, ri_y + 18, (160, 160, 180), 12)
+
+        # Enemy count.
         alive_count = sum(1 for e, _ in self._enemies if e.alive)
-        if alive_count > 0 or (self._boss is not None and self._boss.alive):
-            boss_active = 1 if self._boss is not None and self._boss.alive else 0
-            renderer.draw_text(f"Enemies: {alive_count + boss_active}", 12, 82, (200, 140, 140), 10)
+        boss_active = 1 if self._boss is not None and self._boss.alive else 0
+        total_alive = alive_count + boss_active
+        if total_alive > 0:
+            renderer.draw_text(f"Enemies: {total_alive}", hp_bar_x, ri_y + 36, (220, 160, 160), 12)
 
-        # Ability cooldown HUD (top-right).
+        # === ABILITY BAR (top-right, large) ===
+        slot_w, slot_h = 240, 36
+        slot_start_x = w - slot_w - 20
+        slot_start_y = 20
         slot_labels = ["Q", "E", "R", "T"]
         slot_keys = ["skill_q", "skill_e", "skill_r", "aura"]
+        ability_names = {
+            "skill_q": "Charge",
+            "skill_e": "Shield Bash",
+            "skill_r": "Whirlwind",
+            "aura": "War Cry",
+        }
+
         for i, (label, slot_key) in enumerate(zip(slot_labels, slot_keys)):
             exec_ = self.player.ability_executors.get(slot_key)
             if exec_ is None:
                 continue
-            sx = w - 140
-            sy = 10 + i * 35
-            sw_int, sh_int = 120, 28
-            # Background.
-            renderer.draw_rect((sx, sy, sw_int, sh_int), (30, 30, 30))
-            # Cooldown fill.
+            sx = slot_start_x
+            sy = slot_start_y + i * (slot_h + 6)
+
+            # Background slot.
+            renderer.draw_rect((sx, sy, slot_w, slot_h), (25, 25, 35))
+
+            # Key label (Q/E/R/T circle).
+            key_color = (200, 200, 220)
+            renderer.draw_text(f" [{label}] ", sx + 6, sy + 8, key_color, 14)
+
+            # Ability name.
+            ability_name = ability_names.get(slot_key, "")
+            renderer.draw_text(ability_name, sx + 44, sy + 8, (200, 200, 220), 14)
+
+            # Cooldown / toggle state.
             if exec_.data.ability_type == "toggle":
-                # Toggle ability: show ON/OFF instead of cooldown.
                 if exec_.state.toggle_on:
-                    renderer.draw_rect((sx + 2, sy + 2, sw_int - 4, sh_int - 4), (200, 180, 50))
-                    renderer.draw_text(f"{label}: ON", sx + 4, sy + 6, (255, 230, 100), 10)
+                    renderer.draw_rect((sx + slot_w - 80, sy + 4, 74, slot_h - 8), (220, 200, 60))
+                    renderer.draw_text("ON", sx + slot_w - 62, sy + 8, (255, 255, 200), 14)
                 else:
-                    renderer.draw_rect((sx + 2, sy + 2, sw_int - 4, sh_int - 4), (60, 60, 60))
-                    renderer.draw_text(f"{label}: OFF", sx + 4, sy + 6, (140, 140, 140), 10)
+                    renderer.draw_rect((sx + slot_w - 80, sy + 4, 74, slot_h - 8), (50, 50, 50))
+                    renderer.draw_text("OFF", sx + slot_w - 62, sy + 8, (150, 150, 150), 14)
             else:
                 frac = exec_.ready_fraction
+                cd_w = slot_w - 120
+                cd_x = sx + 120
+                cd_y = sy + 6
+                cd_h = slot_h - 12
+                renderer.draw_rect((cd_x, cd_y, cd_w, cd_h), (40, 40, 50))
                 if frac < 1.0:
-                    fill_w = int((sw_int - 4) * frac)
-                    cooldown_left = exec_.data.cooldown * (1.0 - frac)
-                    renderer.draw_rect((sx + 2, sy + 2, fill_w, sh_int - 4), (60, 60, 180))
-                    renderer.draw_text(f"{label}: {cooldown_left:.1f}s", sx + 4, sy + 6, (140, 180, 255), 10)
+                    fill_w = max(2, int(cd_w * frac))
+                    # Gradient from blue (just activated) to green (almost ready).
+                    fill_color = (60, 80 + int(160 * frac), 200 - int(140 * frac))
+                    renderer.draw_rect((cd_x + 1, cd_y + 1, fill_w, cd_h - 2), fill_color)
+                    cd_left = exec_.data.cooldown * (1.0 - frac)
+                    renderer.draw_text(f"{cd_left:.1f}s", cd_x + cd_w + 6, sy + 8, (160, 200, 255), 12)  # noqa: E501
                 else:
-                    renderer.draw_rect((sx + 2, sy + 2, sw_int - 4, sh_int - 4), (60, 150, 60))
-                    renderer.draw_text(f"{label}: READY", sx + 4, sy + 6, (100, 255, 100), 10)
+                    renderer.draw_rect((cd_x + 1, cd_y + 1, cd_w - 2, cd_h - 2), (60, 200, 60))
+                    renderer.draw_text("READY", cd_x + cd_w + 6, sy + 8, (100, 255, 100), 12)
 
         # Reward overlay.
         if self._reward_pending:
+            w, h = renderer.size
             options = self._pending_weapon_choice or [b.name for b in self._reward_options]
             for i, opt in enumerate(options):
-                rx = 40 + i * 120
-                ry = 60
-                rw, rh = 100, 40
+                rx = 60 + i * 180
+                ry = h // 3
+                rw, rh = 160, 80
+                # Reward card background.
                 renderer.draw_rect((rx, ry, rw, rh), _REWARD_COLORS[i % 3])
-                renderer.draw_rect((rx + 2, ry + 2, rw - 4, rh - 4), (30, 30, 30))
+                renderer.draw_rect((rx + 3, ry + 3, rw - 6, rh - 6), (20, 20, 30))
+                # Label.
                 label = str(opt).replace("warrior_", "").replace("_", " ").title()
-                renderer.draw_text(label, rx + 4, ry + 8, (200, 200, 200), 10)
-            direction_hint = "← 1 | ↓ 2 | → 3"
-            renderer.draw_text(direction_hint, 40, 110, (150, 150, 150), 10)
+                renderer.draw_text(label, rx + 8, ry + 8, (220, 220, 230), 14)
+                # Choice hint.
+                hints = ["< Left", "Down ^", "Right >"]
+                renderer.draw_text(hints[i], rx + 8, ry + 50, (160, 160, 180), 12)
 
         # Game-over overlay.
         if self._run.ended:
             w, h = renderer.size
-            renderer.draw_rect((0, 0, w, h), _OVERLAY_BG)
+            # Full darkness overlay.
+            renderer.draw_rect((0, 0, w, h), (0, 0, 0))
+            cx, cy = w // 2, h // 3
+
             if self._run.state.phase.value == "victory":
-                renderer.draw_rect((w // 4, h // 3, w // 2, h // 3), (0, 80, 0))
-                renderer.draw_text("STAGE COMPLETE!", w // 2 - 70, h // 3 + 20, (100, 255, 100), 18)
-                renderer.draw_text("Click to continue", w // 2 - 60, h // 3 + 50, (200, 200, 200), 12)
+                # Green panel.
+                pw, ph = 360, 160
+                renderer.draw_rect((cx - pw // 2, cy - ph // 2, pw, ph), (0, 60, 0))
+                renderer.draw_rect((cx - pw // 2 + 2, cy - ph // 2 + 2, pw - 4, ph - 4), (0, 40, 0))
+                renderer.draw_text("STAGE COMPLETE!", cx - 120, cy - 30, (100, 255, 100), 22)
+                renderer.draw_text("Click to continue", cx - 80, cy + 10, (200, 255, 200), 14)
             elif self._run.state.phase.value == "death":
-                renderer.draw_rect((w // 4, h // 3, w // 2, h // 3), (80, 0, 0))
-                renderer.draw_text("YOU DIED", w // 2 - 50, h // 3 + 20, (255, 80, 80), 18)
-                renderer.draw_text("Click to retry", w // 2 - 50, h // 3 + 50, (200, 200, 200), 12)
+                # Red panel.
+                pw, ph = 360, 160
+                renderer.draw_rect((cx - pw // 2, cy - ph // 2, pw, ph), (60, 0, 0))
+                renderer.draw_rect((cx - pw // 2 + 2, cy - ph // 2 + 2, pw - 4, ph - 4), (40, 0, 0))
+                renderer.draw_text("YOU DIED", cx - 80, cy - 30, (255, 80, 80), 22)
+                renderer.draw_text("Click to retry", cx - 70, cy + 10, (255, 200, 200), 14)
+
             # Stats summary.
             kills = self._run.state.enemies_killed
             rooms = self._run.state.rooms_cleared
-            floor = self._run.state.current_floor + 1
-            renderer.draw_text(f"Kills: {kills}  Rooms: {rooms}  Depth: Floor {floor}", w // 2 - 100, h // 3 + 80, (180, 180, 180), 10)
+            floor_num = self._run.state.current_floor + 1
+            stats_text = f"Kills: {kills}  Rooms: {rooms}  Depth: Floor {floor_num}"
+            renderer.draw_text(stats_text, cx - 140, cy + 50, (180, 180, 180), 14)

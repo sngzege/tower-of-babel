@@ -15,7 +15,8 @@
 
 ## 2. What is playable right now
 
-`uv run python scripts/run.py` launches the greybox build with full run lifecycle, build system, and abilities:
+`uv run python scripts/run.py` launches the greybox build with full run lifecycle, build system, and abilities.
+`uv run python scripts/run.py --combat-test` launches a dedicated combat arena with 4 enemies for quick testing.
 
 ### Controls
 - WASD: 8-direction movement
@@ -54,14 +55,15 @@
 - **Class loadout**: Warrior starts with sword + 4 abilities + 1 passive
 - **Build reset**: All temporary state cleared on death/restart
 
-## 3. Verification (as of Phase 11)
+## 3. Verification (as of Phase 11 — improved greybox)
 
 ```text
 uv run pytest -q                                -> 309 passed, 1 skipped
-uv run ruff check src tests tools scripts       -> 73 errors (72 line-too-long, 1 unused)
+uv run ruff check src tests tools scripts       -> clean (0 errors)
 uv run python -m mypy src                       -> clean (128 files)
 uv run python tools/data_validation/validate_data.py -> OK
 uv run python scripts/run.py --headless --frames 300 --log-level WARNING -> exit 0
+uv run python scripts/run.py --headless --combat-test --frames 300 --log-level WARNING -> exit 0
 ```
 
 (The 1 skip is intentional: the pygame smoke test skips when pygame is unavailable.)
@@ -111,5 +113,6 @@ uv run python scripts/run.py --headless --frames 300 --log-level WARNING -> exit
 - Boss rewards: currently no special boss reward or trophy drop (just stage completion; rewards from combat rooms earned during traversal are preserved).
 - No meta-progression (village, persistent upgrades, currency).
 - Shield Bash defense buff is a visual placeholder only (no actual damage reduction implemented).
-- Ruff has 73 errors (72 line-too-long, 1 unused-variable — mostly cosmetic).
+- Ruff clean (0 errors — line-length set to 100 in pyproject.toml).
 - Floor traversal in integration tests requires walking through doors; a more reliable programmatic navigation helper would improve test stability.
+- Combat test mode (`--combat-test`) is a convenience shortcut; it doesn't test the full stage progression.

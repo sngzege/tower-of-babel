@@ -130,7 +130,7 @@ class BuildState:
     def total_attack_speed_for(self, base_speed: float) -> float:
         return base_speed * self._attack_speed_mult
 
-    def apply_passive_modifier(self, stat: str, value: float, is_percent: bool, tag: str = "") -> None:
+    def apply_passive_modifier(self, stat: str, value: float, is_percent: bool, tag: str = "") -> None:  # noqa: E501
         """Apply a single passive modifier to cached values."""
         if tag:
             current = self._tag_mods.get((stat, tag), 0.0)

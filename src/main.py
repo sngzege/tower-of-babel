@@ -55,6 +55,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--seed", type=int, default=42, help="stage generation seed")
     parser.add_argument(
+        "--combat-test",
+        action="store_true",
+        help="spawn in a combat room with enemies for quick testing",
+    )
+    parser.add_argument(
         "--stage",
         default=DEFAULT_STAGE_ID,
         help="stage content id from data/world/stages",
@@ -80,6 +85,54 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     game = Game(config=config, vsync=False if args.headless else None)
+
+    if args.combat_test:
+        # Combat test mode: spawn in a combat room with enemies.
+        from gameplay.enemies.enemy_factory import build_enemy
+        from world.room import Room
+
+        combat_room = Room.from_document(registry.get("world", "greybox_combat_hall"))
+        world = combat_room.build_collision_world()
+        spawn_x, spawn_y = combat_room.player_spawn
+        player = Player(
+            stats=PlayerStats.from_document(registry.get("player", PLAYER_STATS_ID)),
+            x=spawn_x,
+            y=spawn_y,
+            events=game.events,
+            attack_data=AttackData.from_document(
+                registry.get("combat", "player_default_attack")
+            ),
+        )
+        camera_config = config.load("display").get("camera", {})
+        camera = Camera(
+            viewport_size=game.renderer.size,
+            zoom=float(camera_config.get("zoom", 1.0)),
+            follow_stiffness=float(camera_config.get("follow_stiffness", 8.0)),
+            bounds=combat_room.bounds,
+        )
+        # Spawn 4 enemies at room-specific positions.
+        enemies: list = []
+        spawn_positions = combat_room.enemy_spawns or [
+            (480, 200), (480, 400), (640, 240), (640, 360),
+        ]
+        for sx, sy in spawn_positions:
+            enemies.append(build_enemy(registry, "greybox_dummy", x=sx, y=sy))
+
+        game.register_scene(
+            PlaytestScene(
+                player=player,
+                room=combat_room,
+                world=world,
+                camera=camera,
+                registry=registry,
+                stage_manager=None,
+                enemies=enemies,
+            ),
+            initial=True,
+        )
+        game.run(max_frames=args.frames)
+        _logger.info("Combat test complete")
+        return 0
 
     # Load the stage definition from data and generate every floor.
     stage_config = StageConfig.from_document(registry.get("world", args.stage))
