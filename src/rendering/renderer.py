@@ -14,6 +14,9 @@ from typing import Protocol
 Color = tuple[int, int, int]
 Rect = tuple[int, int, int, int]  # x, y, width, height (pixel units)
 
+# In-memory font cache keyed by size.
+_FONT_CACHE: dict[int, object] = {}
+
 
 class Renderer(Protocol):
     """Framework-independent rendering surface (Phase 2 scope)."""
@@ -24,6 +27,10 @@ class Renderer(Protocol):
     def clear(self, color: Color) -> None: ...
 
     def draw_rect(self, rect: Rect, color: Color) -> None: ...
+
+    def draw_text(self, text: str, x: int, y: int, color: Color, font_size: int = 12) -> None:
+        """Render a single line of text at pixel (x, y)."""
+        ...
 
     def present(self) -> None: ...
 
@@ -55,6 +62,16 @@ class PygameRenderer:
 
     def draw_rect(self, rect: Rect, color: Color) -> None:
         self._pygame.draw.rect(self._screen, color, rect)
+
+    def draw_text(self, text: str, x: int, y: int, color: Color, font_size: int = 12) -> None:
+        """Render a single line of text at pixel (x, y)."""
+        import pygame
+
+        if font_size not in _FONT_CACHE:
+            _FONT_CACHE[font_size] = pygame.font.Font(None, font_size)
+        font: pygame.font.Font = _FONT_CACHE[font_size]  # type: ignore[assignment]
+        surface = font.render(str(text), True, color)
+        self._screen.blit(surface, (x, y))
 
     def present(self) -> None:
         self._pygame.display.flip()

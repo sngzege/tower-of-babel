@@ -65,14 +65,13 @@ def test_content_loads() -> None:
 
     print(f"OK: All {len(categories)} categories loaded successfully")
     print(f"OK: Warrior class has {len(abilities)} abilities, {len(warrior.get('starting_passives', []))} passives")
-    print(f"OK: All referenced IDs validated")
+    print("OK: All referenced IDs validated")
 
 
 def test_build_state_integration() -> None:
     """Verify BuildState modifier pipeline end-to-end."""
-    from gameplay.builds.build_state import BuildState
     from gameplay.builds.boon import BoonData, apply_boon_to_build
-    from gameplay.builds.passive import PassiveData
+    from gameplay.builds.build_state import BuildState
 
     build = BuildState()
 
@@ -132,7 +131,6 @@ def test_ability_cooldown() -> None:
 
 def test_gameplay_run_headless() -> None:
     """Run the game in headless mode for a short duration."""
-    import os
     import subprocess
 
     result = subprocess.run(

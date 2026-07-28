@@ -23,7 +23,7 @@ from core.content_registry import ContentRegistry
 from core.enums import SceneID
 from engine.scene import Scene
 from gameplay.bosses.boss_ai import BossAI, BossPhase
-from gameplay.builds.ability import AbilityData, AbilityExecutor
+from gameplay.builds.ability import AbilityExecutor
 from gameplay.builds.boon import BoonData, apply_boon_to_build
 from gameplay.builds.weapon import WeaponData
 from gameplay.combat.attack import AttackData
@@ -155,6 +155,12 @@ class PlaytestScene(Scene):
             "skill_r": False, "aura": False,
         }
 
+        # Phase B: damage number popups and visual feedback.
+        self._damage_numbers: list[dict] = []
+        self._enemy_flash_timers: dict[str, float] = {}
+        self._temp_knockback_origin: tuple[float, float] | None = None
+        self._temp_knockback_force: float = 0.0
+
     @property
     def enemies(self) -> tuple[tuple[Enemy, SimpleAI], ...]:
         return tuple(self._enemies)
@@ -198,7 +204,7 @@ class PlaytestScene(Scene):
             return
         try:
             doc = self._registry.get("weapons", weapon_id)
-            weapon = WeaponData.from_document(doc)
+            WeaponData.from_document(doc)  # validate it loads
         except Exception:
             _logger.warning("Weapon '%s' not found, using defaults", weapon_id)
             return
@@ -345,6 +351,8 @@ class PlaytestScene(Scene):
         self._encounter = RoomEncounter()
         self._reward_pending = False
         self._pending_buffs.clear()
+        self._damage_numbers.clear()
+        self._enemy_flash_timers.clear()
         self._toggle_states.update({"skill_q": False, "skill_e": False, "skill_r": False, "aura": False})
         # Reset toggle executors.
         for executor in self.player.ability_executors.values():
@@ -405,6 +413,8 @@ class PlaytestScene(Scene):
         self._pending_buffs.clear()
         self._game_over_message = ""
         self._pending_weapon_choice = []
+        self._damage_numbers.clear()
+        self._enemy_flash_timers.clear()
         self._toggle_states.update({"skill_q": False, "skill_e": False, "skill_r": False, "aura": False})
         for executor in self.player.ability_executors.values():
             executor.state.toggle_on = False
@@ -566,7 +576,7 @@ class PlaytestScene(Scene):
                 self._fire_instant_ability(executor)
 
     def _fire_instant_ability(self, executor: AbilityExecutor) -> None:
-        """Execute one-shot ability effects (dash, aoe, knockback)."""
+        """Execute one-shot ability effects (dash, aoe, knockback, buff)."""
         effects = executor.data.effects
         if not effects:
             return
@@ -593,7 +603,8 @@ class PlaytestScene(Scene):
                     self._temp_ability_hitbox = (
                         AABB(px + fx * distance * 0.3 - 20.0,
                              py + fy * distance * 0.3 - 12.0, 40.0, 24.0),
-                        DamageInstance(value=dmg, types=dmg_types, source_layer="player_hitbox"),
+                        DamageInstance(value=dmg, types=dmg_types, source_layer="player_hitbox",
+                                       knockback=(fx * 200.0, fy * 200.0)),
                     )
             elif etype == "aoe":
                 range_val = float(effect.get("range", 60.0))
@@ -607,10 +618,38 @@ class PlaytestScene(Scene):
                 range_val = float(effect.get("range", 60.0))
                 dmg = float(effect.get("damage", 0))
                 if dmg > 0:
+                    # Radial outward knockback from player position.
                     self._temp_ability_hitbox = (
                         AABB(px - range_val, py - range_val, range_val * 2, range_val * 2),
-                        DamageInstance(value=dmg, types=frozenset(effect.get("damage_types", ["physical"])), source_layer="player_hitbox"),
+                        DamageInstance(value=dmg, types=frozenset(effect.get("damage_types", ["physical"])), source_layer="player_hitbox",
+                                       knockback=(0.0, 0.0)),  # radial — computed per-target in hit resolution
                     )
+                    self._temp_knockback_origin = (px, py)
+                    self._temp_knockback_force = 300.0
+            elif etype == "buff":
+                # Instant timed buff (e.g. Shield Bash temp armor).
+                stat = str(effect.get("stat", "damage"))
+                value = float(effect.get("value", 0.0))
+                duration = float(effect.get("duration", 3.0))
+                is_pct = bool(effect.get("is_percent", False))
+                if stat == "damage" and is_pct:
+                    self._pending_buffs.append({
+                        "slot": "attack_executor",
+                        "original_damage": self.player.attack_executor.data.damage,
+                        "buffed_damage": self.player.attack_executor.data.damage * (1.0 + value),
+                        "timer": duration,
+                    })
+                    from dataclasses import replace
+                    buffed = replace(self.player.attack_executor.data,
+                                     damage=self.player.attack_executor.data.damage * (1.0 + value))
+                    self.player.attack_executor = self.player.attack_executor.__class__(buffed)
+                    self._add_damage_number(px, py - 30.0,
+                                            f"+{int(value * 100)}% ATK", (200, 200, 80))
+                    _logger.info("Buff: damage +%.0f%% for %.1fs", value * 100, duration)
+                elif stat == "defense":
+                    # Track "defense" dummy buff (visual-only placeholder).
+                    self._add_damage_number(px, py - 30.0,
+                                            "DEF+", (80, 180, 255))
 
     def _apply_toggle_effect(self, slot_key: str, executor: AbilityExecutor, on: bool) -> None:
         """Apply or remove a toggle/sustained effect."""
@@ -728,7 +767,22 @@ class PlaytestScene(Scene):
                     self._boss.hurtbox, self._boss.alive, self._boss, self._boss.invuln_service,
                 ))
             hits = self._combat.resolve_hits(player_hitboxes, ents)
+            kb_origin = self._temp_knockback_origin
+            kb_force = self._temp_knockback_force
+            self._temp_knockback_origin = None
+            self._temp_knockback_force = 0.0
             for hit in hits:
+                if hit.result.dealt > 0:
+                    hx, hy = self._hit_target_pos(hit.target_id)
+                    self._add_damage_number(hx, hy, f"-{int(hit.result.dealt)}", (255, 255, 200))
+                    # Mark enemy for damage flash.
+                    self._enemy_flash_timers[hit.target_id] = 0.1
+                    if hit.instance.knockback != (0.0, 0.0):
+                        # Apply collision-aware knockback to hit enemy.
+                        self._apply_knockback(hit.target_id, hit.instance)
+                    elif kb_origin is not None and kb_force > 0.0:
+                        # Radial knockback from knockback_origin.
+                        self._apply_radial_knockback(hit.target_id, kb_origin, kb_force)
                 if hit.result.killed:
                     self._encounter.on_enemy_died()
                     self._run.on_enemy_kill()
@@ -781,6 +835,25 @@ class PlaytestScene(Scene):
 
         self.camera.follow(self.player.body.x, self.player.body.y, dt)
 
+        # Tick damage numbers.
+        expired_nums = []
+        for i, dn in enumerate(self._damage_numbers):
+            dn["timer"] -= dt
+            dn["wy"] += dn["vy"] * dt
+            if dn["timer"] <= 0:
+                expired_nums.append(i)
+        for i in reversed(expired_nums):
+            self._damage_numbers.pop(i)
+
+        # Tick enemy flash timers.
+        expired_flashes = []
+        for eid, timer in self._enemy_flash_timers.items():
+            self._enemy_flash_timers[eid] = timer - dt
+            if timer - dt <= 0:
+                expired_flashes.append(eid)
+        for eid in expired_flashes:
+            self._enemy_flash_timers.pop(eid, None)
+
     def _make_combat_entity(self, eid, bx, by, hurtbox, vulnerable, target, invuln):
         return CombatEntity(
             id=eid, body_x=bx, body_y=by,
@@ -789,7 +862,69 @@ class PlaytestScene(Scene):
             invuln_service=invuln,
         )
 
-    # -- Rendering --
+    def _add_damage_number(self, wx: float, wy: float, text: str, color: Color = (255, 255, 200)) -> None:
+        """Add a floating damage number at a world position."""
+        self._damage_numbers.append({
+            "text": text,
+            "wx": wx,
+            "wy": wy,
+            "color": color,
+            "timer": 1.2,
+            "vy": -30.0,  # float upward pixels/sec
+        })
+
+    def _apply_knockback(self, target_id: str, instance: DamageInstance) -> None:
+        """Apply collision-aware knockback to an enemy by id."""
+        for e, _ai in self._enemies:
+            if e.entity.name == target_id and e.alive:
+                kx, ky = instance.knockback
+                if kx != 0.0 or ky != 0.0:
+                    self._push_entity_with_collision(e, kx * 0.01, ky * 0.01)
+                break
+        if self._boss is not None and self._boss.entity.name == target_id and self._boss.alive:
+            kx, ky = instance.knockback
+            if kx != 0.0 or ky != 0.0:
+                self._push_entity_with_collision(self._boss, kx * 0.01, ky * 0.01)
+
+    def _apply_radial_knockback(self, target_id: str, origin: tuple[float, float], force: float) -> None:
+        """Apply radial outward knockback from an origin point."""
+        for e, _ai in self._enemies:
+            if e.entity.name == target_id and e.alive:
+                dx = e.body.x - origin[0]
+                dy = e.body.y - origin[1]
+                length = (dx * dx + dy * dy) ** 0.5
+                if length > 1.0:
+                    self._push_entity_with_collision(e, dx / length * force * 0.01, dy / length * force * 0.01)
+                break
+        if self._boss is not None and self._boss.entity.name == target_id and self._boss.alive:
+            dx = self._boss.body.x - origin[0]
+            dy = self._boss.body.y - origin[1]
+            length = (dx * dx + dy * dy) ** 0.5
+            if length > 1.0:
+                self._push_entity_with_collision(self._boss, dx / length * force * 0.01, dy / length * force * 0.01)
+
+    def _push_entity_with_collision(self, entity: Enemy, vx: float, vy: float) -> None:
+        """Push an entity with collision awareness — stop at walls."""
+        test_x = entity.body.x + vx
+        test_y = entity.body.y + vy
+        test_box = AABB(test_x, test_y, entity.body.width, entity.body.height)
+        blocked = False
+        for solid in self.room.solids:
+            if test_box.intersects(solid):
+                blocked = True
+                break
+        if not blocked:
+            entity.body.x = test_x
+            entity.body.y = test_y
+
+    def _hit_target_pos(self, target_id: str) -> tuple[float, float]:
+        """Get world position of a target by name."""
+        for e, _ai in self._enemies:
+            if e.entity.name == target_id:
+                return (e.body.x, e.body.y)
+        if self._boss is not None and self._boss.entity.name == target_id:
+            return (self._boss.body.x, self._boss.body.y)
+        return (0.0, 0.0)
 
     def render(self, renderer: Renderer) -> None:
         renderer.draw_rect(self.camera.screen_rect(self.room.bounds), _FLOOR_COLOR)
@@ -799,7 +934,9 @@ class PlaytestScene(Scene):
         for enemy, _ai in self._enemies:
             if not enemy.alive:
                 continue
-            renderer.draw_rect(self.camera.screen_rect(enemy.body.box), _ENEMY_COLOR)
+            # Damage flash.
+            flash_color = (255, 255, 255) if self._enemy_flash_timers.get(enemy.entity.name, 0) > 0 else _ENEMY_COLOR
+            renderer.draw_rect(self.camera.screen_rect(enemy.body.box), flash_color)
             ha = enemy.hurtbox.box_at(enemy.body.x, enemy.body.y)
             renderer.draw_rect(self.camera.screen_rect(ha), _ENEMY_HURTBOX_ALPHA)
             ratio = enemy.health / enemy.config.max_health
@@ -864,6 +1001,16 @@ class PlaytestScene(Scene):
         )
         renderer.draw_rect(self.camera.screen_rect(marker), _FACING_COLOR)
 
+        # Damage numbers (world → screen).
+        for dn in self._damage_numbers:
+            sx, sy = self.camera.world_to_screen(dn["wx"], dn["wy"])
+            alpha = max(0.2, min(1.0, dn["timer"] / 0.5))
+            # Fade from yellow to white.
+            r = int(255 * alpha)
+            g = int(255 * alpha)
+            b = int(200 * alpha)
+            renderer.draw_text(dn["text"], int(sx), int(sy), (min(255, r), min(255, g), min(255, b)))
+
         # Player HP bar (top-left).
         w, h = renderer.size
         hp_ratio = self.player.health / self.player.stats.max_health
@@ -873,6 +1020,26 @@ class PlaytestScene(Scene):
             hp_fg_w = int((hp_bg_w - 4) * hp_ratio)
             hp_color = (80, 200, 80) if hp_ratio > 0.3 else (200, 80, 80)
             renderer.draw_rect((12, 12, hp_fg_w, hp_bg_h - 4), hp_color)
+        # HP text.
+        renderer.draw_text(f"HP {int(self.player.health)}/{int(self.player.stats.max_health)}", 12, 12, (230, 230, 230), 10)
+
+        # Weapon name (below HP).
+        weapon_name = self._run.build.weapon_id.replace("warrior_", "").title() if self._run.build.weapon_id != "unarmed" else "Unarmed"
+        renderer.draw_text(f"Weapon: {weapon_name}", 12, 34, (200, 200, 200), 10)
+
+        # Room info (below weapon).
+        room_info = f"Room: {self.room.kind} | Floor {self._stage_manager.floor_index + 1}/{len(self._stage_manager.stage_data.floors)}" if self._stage_manager else self.room.kind
+        renderer.draw_text(room_info, 12, 50, (160, 160, 180), 10)
+
+        # Fury status (below room info).
+        if self._run.build._fury_active:
+            renderer.draw_text("FURY ACTIVE (+15% DMG)", 12, 66, (255, 180, 50), 10)
+
+        # Enemy count (below fury).
+        alive_count = sum(1 for e, _ in self._enemies if e.alive)
+        if alive_count > 0 or (self._boss is not None and self._boss.alive):
+            boss_active = 1 if self._boss is not None and self._boss.alive else 0
+            renderer.draw_text(f"Enemies: {alive_count + boss_active}", 12, 82, (200, 140, 140), 10)
 
         # Ability cooldown HUD (top-right).
         slot_labels = ["Q", "E", "R", "T"]
@@ -891,15 +1058,20 @@ class PlaytestScene(Scene):
                 # Toggle ability: show ON/OFF instead of cooldown.
                 if exec_.state.toggle_on:
                     renderer.draw_rect((sx + 2, sy + 2, sw_int - 4, sh_int - 4), (200, 180, 50))
+                    renderer.draw_text(f"{label}: ON", sx + 4, sy + 6, (255, 230, 100), 10)
                 else:
                     renderer.draw_rect((sx + 2, sy + 2, sw_int - 4, sh_int - 4), (60, 60, 60))
+                    renderer.draw_text(f"{label}: OFF", sx + 4, sy + 6, (140, 140, 140), 10)
             else:
                 frac = exec_.ready_fraction
                 if frac < 1.0:
                     fill_w = int((sw_int - 4) * frac)
+                    cooldown_left = exec_.data.cooldown * (1.0 - frac)
                     renderer.draw_rect((sx + 2, sy + 2, fill_w, sh_int - 4), (60, 60, 180))
+                    renderer.draw_text(f"{label}: {cooldown_left:.1f}s", sx + 4, sy + 6, (140, 180, 255), 10)
                 else:
                     renderer.draw_rect((sx + 2, sy + 2, sw_int - 4, sh_int - 4), (60, 150, 60))
+                    renderer.draw_text(f"{label}: READY", sx + 4, sy + 6, (100, 255, 100), 10)
 
         # Reward overlay.
         if self._reward_pending:
@@ -910,12 +1082,25 @@ class PlaytestScene(Scene):
                 rw, rh = 100, 40
                 renderer.draw_rect((rx, ry, rw, rh), _REWARD_COLORS[i % 3])
                 renderer.draw_rect((rx + 2, ry + 2, rw - 4, rh - 4), (30, 30, 30))
+                label = str(opt).replace("warrior_", "").replace("_", " ").title()
+                renderer.draw_text(label, rx + 4, ry + 8, (200, 200, 200), 10)
+            direction_hint = "← 1 | ↓ 2 | → 3"
+            renderer.draw_text(direction_hint, 40, 110, (150, 150, 150), 10)
 
         # Game-over overlay.
         if self._run.ended:
             w, h = renderer.size
-            renderer.draw_rect((0, 0, w, h), (0, 0, 0))
+            renderer.draw_rect((0, 0, w, h), _OVERLAY_BG)
             if self._run.state.phase.value == "victory":
-                renderer.draw_rect((0, 0, w // 2, h // 4), (0, 80, 0))
+                renderer.draw_rect((w // 4, h // 3, w // 2, h // 3), (0, 80, 0))
+                renderer.draw_text("STAGE COMPLETE!", w // 2 - 70, h // 3 + 20, (100, 255, 100), 18)
+                renderer.draw_text("Click to continue", w // 2 - 60, h // 3 + 50, (200, 200, 200), 12)
             elif self._run.state.phase.value == "death":
-                renderer.draw_rect((w // 4, h // 4, w // 2, h // 4), (80, 0, 0))
+                renderer.draw_rect((w // 4, h // 3, w // 2, h // 3), (80, 0, 0))
+                renderer.draw_text("YOU DIED", w // 2 - 50, h // 3 + 20, (255, 80, 80), 18)
+                renderer.draw_text("Click to retry", w // 2 - 50, h // 3 + 50, (200, 200, 200), 12)
+            # Stats summary.
+            kills = self._run.state.enemies_killed
+            rooms = self._run.state.rooms_cleared
+            floor = self._run.state.current_floor + 1
+            renderer.draw_text(f"Kills: {kills}  Rooms: {rooms}  Depth: Floor {floor}", w // 2 - 100, h // 3 + 80, (180, 180, 180), 10)

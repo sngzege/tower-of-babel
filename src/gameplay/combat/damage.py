@@ -25,7 +25,6 @@ class DamageInstance:
     ``knockback`` is the push direction/force applied to the target ((0,0)=none).
     ``status_tags`` are status effects to apply on hit.
     """
-
     value: float
     types: frozenset[str] = frozenset()
     source_layer: str = ""

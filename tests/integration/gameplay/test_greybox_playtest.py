@@ -29,6 +29,7 @@ class RecordingRenderer:
 
     def __init__(self) -> None:
         self.rects: list[tuple[tuple[int, int, int, int], tuple[int, int, int]]] = []
+        self.texts: list[str] = []
 
     @property
     def size(self) -> tuple[int, int]:
@@ -38,6 +39,21 @@ class RecordingRenderer:
         self, rect: tuple[int, int, int, int], color: tuple[int, int, int]
     ) -> None:
         self.rects.append((rect, color))
+
+    def draw_text(self, text: str, x: int, y: int, color: tuple[int, int, int], font_size: int = 12) -> None:
+        self.texts.append(text)
+
+    def clear(self, color: tuple[int, int, int]) -> None:
+        pass
+
+    def present(self) -> None:
+        pass
+
+    def tick(self, fps: int) -> float:
+        return 1.0 / 60.0
+
+    def close(self) -> None:
+        pass
 
 
 def _build_scene() -> PlaytestScene:

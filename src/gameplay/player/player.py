@@ -23,6 +23,7 @@ from dataclasses import dataclass
 
 from core.events import EventBus
 from engine.entity import Entity
+from gameplay.builds.ability import AbilityData, AbilityExecutor, AbilitySlot
 from gameplay.combat.attack import AttackData, AttackExecutor
 from gameplay.combat.invulnerability import InvulnerabilityService
 from gameplay.combat.status_effects import StatusEffectManager
@@ -30,7 +31,6 @@ from gameplay.player.dodge_charges import DodgeCharges
 from gameplay.player.player_controller import PlayerIntent
 from gameplay.player.player_state import PlayerState, build_player_state_machine
 from gameplay.player.player_stats import PlayerStats
-from gameplay.builds.ability import AbilityData, AbilityExecutor, AbilitySlot
 from physics.collision import CollisionWorld
 from physics.hitbox import Hitbox
 from physics.hurtbox import Hurtbox
