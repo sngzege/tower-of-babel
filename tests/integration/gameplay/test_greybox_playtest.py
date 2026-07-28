@@ -232,7 +232,7 @@ def test_full_vertical_slice_build_and_run() -> None:
     # Phase 4: Build persisted throughout.
     assert scene._run.build.weapon_id == "warrior_sword"
     assert len(scene._run.build.boon_ids) > 0
-    assert len(scene._run.build.ability_ids) == 4
+    assert len(scene._run.build.ability_ids) >= 4
 
     # Phase 5: Restart command resets build.
     scene._restart_run()

@@ -462,12 +462,12 @@ class PlaytestScene(Scene):
             self._reward_pending = False
             return
         idx = -1
-        if frame.aim_x > 0.5:
+        if frame.aim_x < -0.5:
             idx = 0
-        elif frame.aim_x < -0.5:
-            idx = 2
         elif frame.aim_y > 0.5 or frame.aim_y < -0.5:
             idx = 1
+        elif frame.aim_x > 0.5:
+            idx = 2
         if idx >= 0 and idx < len(self._reward_options):
             boon = self._reward_options[idx]
             apply_boon_to_build(boon, self._run.build)
@@ -483,12 +483,12 @@ class PlaytestScene(Scene):
 
     def _weapon_choice_index(self, frame: ActionFrame) -> int:
         """Map aim direction to weapon choice index."""
-        if frame.aim_x > 0.5:
+        if frame.aim_x < -0.5:
             return 0
-        elif frame.aim_x < -0.5:
-            return 2
         elif frame.aim_y > 0.5 or frame.aim_y < -0.5:
             return 1
+        elif frame.aim_x > 0.5:
+            return 2
         return -1
 
     def _generate_boon_options(self, count: int = 3) -> list[BoonData]:
@@ -1199,7 +1199,7 @@ class PlaytestScene(Scene):
                 label = str(opt).replace("warrior_", "").replace("_", " ").title()
                 renderer.draw_text(label, rx + 8, ry + 8, (220, 220, 230), 14)
                 # Choice hint.
-                hints = ["< Left", "Down ^", "Right >"]
+                hints = ["← Left", "↓ Down", "Right →"]
                 renderer.draw_text(hints[i], rx + 8, ry + 50, (160, 160, 180), 12)
 
         # Game-over overlay.
