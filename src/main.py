@@ -110,13 +110,18 @@ def main(argv: list[str] | None = None) -> int:
             follow_stiffness=float(camera_config.get("follow_stiffness", 8.0)),
             bounds=combat_room.bounds,
         )
-        # Spawn 4 enemies at room-specific positions.
+        # Spawn varied enemies for playground testing:
+        #   4 greybox dummies + 1 elite dummmy + positions spread around room.
         enemies: list = []
         spawn_positions = combat_room.enemy_spawns or [
-            (480, 200), (480, 400), (640, 240), (640, 360),
+            (420, 200), (540, 200), (420, 360), (540, 360),  # melee dummies
+            (480, 280),  # elite centered but among them
         ]
-        for sx, sy in spawn_positions:
-            enemies.append(build_enemy(registry, "greybox_dummy", x=sx, y=sy))
+        for i, (sx, sy) in enumerate(spawn_positions):
+            if i == 4:  # last spawn = elite
+                enemies.append(build_enemy(registry, "greybox_elite", x=sx, y=sy))
+            else:
+                enemies.append(build_enemy(registry, "greybox_dummy", x=sx, y=sy))
 
         game.register_scene(
             PlaytestScene(

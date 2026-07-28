@@ -35,7 +35,7 @@ from gameplay.combat.damage import DamageInstance
 from gameplay.combat.damage_formula import DamageFormula
 from gameplay.combat.encounter import RoomEncounter
 from gameplay.enemies.enemy import Enemy
-from gameplay.enemies.enemy_ai import SimpleAI
+from gameplay.enemies.enemy_ai import AIState, SimpleAI
 from gameplay.enemies.enemy_factory import build_boss, build_enemy
 from gameplay.player.aim_controller import AimController
 from gameplay.player.player import Player
@@ -56,6 +56,7 @@ _FLOOR_COLOR: Color = (34, 34, 40)
 _WALL_COLOR: Color = (92, 92, 112)
 _ATTACK_HITBOX_COLOR: Color = (255, 120, 50)
 _ENEMY_COLOR: Color = (200, 60, 60)
+_ELITE_COLOR: Color = (200, 160, 40)
 _ENEMY_ATTACK_COLOR: Color = (255, 80, 80)
 _ENEMY_HURTBOX_ALPHA: Color = (200, 60, 60)
 _HEALTH_BAR_BG: Color = (50, 50, 50)
@@ -451,6 +452,26 @@ class PlaytestScene(Scene):
         self.stage_completed = False
         self._pending_buffs.clear()
 
+    def _respawn_arena_enemies(self) -> None:
+        """Respawn all dead enemies in combat test mode."""
+        count = 0
+        for enemy, ai in self._enemies:
+            if not enemy.alive:
+                enemy.health = enemy.config.max_health
+                enemy._alive = True  # type: ignore[assignment]
+                enemy.invuln_service.clear()
+                ai._state = AIState.IDLE  # type: ignore[assignment]
+                count += 1
+        if count > 0:
+            self._encounter = type(self._encounter)()
+            total = len(self._enemies) + (1 if self._boss is not None and self._boss.alive else 0)
+            if total > 0:
+                self._encounter.activate(total)
+            self._add_damage_number(
+                self.player.body.x, self.player.body.y - 30,
+                f"RESPAWNED {count}", (180, 180, 255),
+            )
+
     def _reward_card_rects(self, h: int, count: int) -> list[tuple[int, int, int, int]]:
         """Compute screen rects for reward cards for hit-testing."""
         rects: list[tuple[int, int, int, int]] = []
@@ -753,6 +774,21 @@ class PlaytestScene(Scene):
                     _logger.info("Toggle OFF: damage buff removed")
 
     def update(self, frame: ActionFrame, dt: float) -> None:
+        # Developer shortcuts (only when no stage_manager — combat test mode).
+        if self._stage_manager is None:
+            if Action.INTERACT in frame.pressed:  # F — restore HP
+                self.player.health = self.player.stats.max_health
+                self.player.invuln_service.clear()
+                self.player.set_hitstun(0.0)
+                self._add_damage_number(
+                    self.player.body.x, self.player.body.y - 30,
+                    "HP RESTORED", (80, 255, 80),
+                )
+                _logger.info("Combat test: HP restored")
+            if Action.PAUSE in frame.pressed:  # Escape — respawn enemies
+                self._respawn_arena_enemies()
+                _logger.info("Combat test: enemies respawned")
+
         if self._run.ended:
             if Action.PRIMARY_ATTACK in frame.pressed:
                 self._restart_run()
@@ -1054,8 +1090,12 @@ class PlaytestScene(Scene):
 
             if not enemy.alive:
                 continue
+            # Determine color by enemy type (elite = gold, normal = red).
+            e_tags: frozenset[str] = getattr(enemy.config, 'tags', frozenset()) if hasattr(enemy.config, 'tags') else frozenset()  # noqa: E501
+            is_elite = 'elite' in e_tags
+            base_color = _ELITE_COLOR if is_elite else _ENEMY_COLOR
             # Damage flash.
-            flash_color = (255, 255, 255) if self._enemy_flash_timers.get(enemy.entity.name, 0) > 0 else _ENEMY_COLOR  # noqa: E501
+            flash_color = (255, 255, 255) if self._enemy_flash_timers.get(enemy.entity.name, 0) > 0 else base_color  # noqa: E501
             renderer.draw_rect(self.camera.screen_rect(enemy.body.box), flash_color)
             ha = enemy.hurtbox.box_at(enemy.body.x, enemy.body.y)
             renderer.draw_rect(self.camera.screen_rect(ha), _ENEMY_HURTBOX_ALPHA)
@@ -1222,6 +1262,11 @@ class PlaytestScene(Scene):
         total_alive = alive_count + boss_active
         if total_alive > 0:
             renderer.draw_text(f"Enemies: {total_alive}", hp_bar_x, ri_y + 36, (220, 160, 160), 12)
+
+        # Combat test mode controls hint.
+        if self._stage_manager is None:
+            renderer.draw_text("TEST MODE  F:HP  ESC:Respawn", hp_bar_x, ri_y + 54,
+                               (140, 140, 160), 11)
 
         # === ABILITY BAR (top-right, responsive width) ===
         # Slot width is proportional to viewport, clamped to readable range.

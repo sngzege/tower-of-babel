@@ -1,0 +1,31 @@
+# Greybox Elite Dummy — tougher test enemy for combat playground
+# Higher HP, more damage, slightly slower (testing ability damage)
+id: greybox_elite
+name: Greybox Elite Dummy
+family: greybox
+role: elite
+tags: [greybox, dummy, elite]
+stats:
+  health: 150
+  damage: 15
+  speed: 45.0
+body:
+  width: 32.0
+  height: 32.0
+hurtbox:
+  width: 30.0
+  height: 30.0
+  offset_x: 0.0
+  offset_y: 0.0
+attack:
+  windup: 0.3
+  active: 0.35
+  recovery: 0.2
+  cooldown: 1.2
+  damage: 15.0
+  damage_types: [physical]
+  hitbox_spread: 22.0
+  hitbox_reach: 24.0
+  min_range: 24.0
+  ideal_range: 32.0
+aggro_range: 220.0
