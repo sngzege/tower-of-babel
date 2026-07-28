@@ -16,6 +16,7 @@ from core.constants import LOGS_DIR
 from core.content_registry import ContentRegistry
 from core.data_loader import load_category
 from engine.game import Game
+from gameplay.combat.attack import AttackData
 from gameplay.player.player import Player
 from gameplay.player.player_stats import PlayerStats
 from gameplay.playtest_scene import PlaytestScene
@@ -28,7 +29,15 @@ from world.stage_manager import StageManager
 
 _logger = get_logger(__name__)
 
-CONTENT_CATEGORIES = ("player", "weapons", "items", "enemies", "loot", "world")
+CONTENT_CATEGORIES = (
+    "player",
+    "combat",
+    "weapons",
+    "items",
+    "enemies",
+    "loot",
+    "world",
+)
 PLAYER_STATS_ID = "player_base"
 DEFAULT_STAGE_ID = "first_stage"
 
@@ -40,9 +49,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--headless", action="store_true", help="use the dummy SDL video driver"
     )
-    parser.add_argument(
-        "--seed", type=int, default=42, help="stage generation seed"
-    )
+    parser.add_argument("--seed", type=int, default=42, help="stage generation seed")
     parser.add_argument(
         "--stage",
         default=DEFAULT_STAGE_ID,
@@ -85,9 +92,15 @@ def main(argv: list[str] | None = None) -> int:
 
     world = start_room.build_collision_world()
     spawn_x, spawn_y = start_room.player_spawn
-    player = Player(stats=PlayerStats.from_document(
-        registry.get("player", PLAYER_STATS_ID)
-    ), x=spawn_x, y=spawn_y, events=game.events)
+    player = Player(
+        stats=PlayerStats.from_document(registry.get("player", PLAYER_STATS_ID)),
+        x=spawn_x,
+        y=spawn_y,
+        events=game.events,
+        attack_data=AttackData.from_document(
+            registry.get("combat", "player_default_attack")
+        ),
+    )
 
     camera_config = config.load("display").get("camera", {})
     camera = Camera(

@@ -2,6 +2,7 @@
 Headless verification: run the PlaytestScene with enemies and verify
 the combat pipeline works: movement, aim, attack, hit, damage, dodge.
 """
+
 from __future__ import annotations
 
 from core.content_registry import ContentRegistry
@@ -53,8 +54,10 @@ def main() -> int:
     # Step 2: Enemies active.
     print("Step 2: Enemies active")
     for e, ai in enemies:
-        print(f"  Enemy {e.entity.name} at ({e.body.x:.1f}, {e.body.y:.1f}), "
-              f"AI: {ai.state.value}")
+        print(
+            f"  Enemy {e.entity.name} at ({e.body.x:.1f}, {e.body.y:.1f}), "
+            f"AI: {ai.state.value}"
+        )
     chasing = sum(1 for _, ai in enemies if ai.state.value == "chase")
     attacking = sum(1 for _, ai in enemies if ai.state.value == "attack")
     assert chasing + attacking > 0, "At least one enemy active"
@@ -66,7 +69,8 @@ def main() -> int:
     # Aim RIGHT toward the enemy.
     attack_frame = ActionFrame(
         pressed=frozenset({Action.PRIMARY_ATTACK}),
-        aim_x=1.0, aim_y=0.0,
+        aim_x=1.0,
+        aim_y=0.0,
     )
     for _ in range(15):
         scene.update(attack_frame, DT)
@@ -94,7 +98,8 @@ def main() -> int:
     dodge_frame = ActionFrame(
         pressed=frozenset({Action.DODGE}),
         move_x=1.0,
-        aim_x=0.0, aim_y=1.0,
+        aim_x=0.0,
+        aim_y=1.0,
     )
     scene.update(dodge_frame, DT)
     assert player.state is PlayerState.DODGE, f"Player dodging (got {player.state})"

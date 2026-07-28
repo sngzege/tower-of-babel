@@ -60,6 +60,7 @@ class Player:
         x: float = 0.0,
         y: float = 0.0,
         events: EventBus | None = None,
+        attack_data: AttackData | None = None,
     ) -> None:
         self.stats = stats
         self._events = events
@@ -98,12 +99,27 @@ class Player:
         )
 
         # Phase 4 combat components.
-        self.invuln_service = InvulnerabilityService(
-            on_state_changed=lambda v: None
-        )
+        self.invuln_service = InvulnerabilityService(on_state_changed=lambda v: None)
         self.status_manager = StatusEffectManager()
-        self.attack_executor = AttackExecutor(
-            AttackData(
+        # Use provided AttackData or fall back to hardcoded defaults.
+        if attack_data is not None:
+            final_attack = AttackData(
+                id=attack_data.id,
+                windup=attack_data.windup,
+                active=attack_data.active,
+                recovery=attack_data.recovery,
+                cooldown=(
+                    attack_data.cooldown
+                    if attack_data.cooldown > 0
+                    else stats.attack_speed
+                ),
+                damage=attack_data.damage,
+                damage_types=attack_data.damage_types,
+                hitbox_spread=attack_data.hitbox_spread,
+                hitbox_reach=attack_data.hitbox_reach,
+            )
+        else:
+            final_attack = AttackData(
                 id="default_attack",
                 windup=0.0,
                 active=0.12,
@@ -114,7 +130,7 @@ class Player:
                 hitbox_spread=16.0,
                 hitbox_reach=36.0,
             )
-        )
+        self.attack_executor = AttackExecutor(final_attack)
 
         # State machine.
         self._machine = build_player_state_machine()

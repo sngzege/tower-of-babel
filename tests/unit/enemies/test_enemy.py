@@ -16,6 +16,7 @@ from physics.collision import CollisionLayer
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def dummy_config() -> EnemyConfig:
     return EnemyConfig(
@@ -47,6 +48,7 @@ def dummy_enemy(dummy_config: EnemyConfig) -> Enemy:
 # ---------------------------------------------------------------------------
 # Enemy entity tests
 # ---------------------------------------------------------------------------
+
 
 class TestEnemyEntity:
     def test_spawns_alive(self, dummy_enemy: Enemy) -> None:
@@ -137,6 +139,7 @@ class TestEnemyEntity:
 # Enemy AI tests
 # ---------------------------------------------------------------------------
 
+
 class TestSimpleAI:
     def test_starts_idle(self, dummy_enemy: Enemy) -> None:
         ai = SimpleAI(dummy_enemy)
@@ -195,6 +198,7 @@ class TestSimpleAI:
 # ---------------------------------------------------------------------------
 # Enemy factory tests
 # ---------------------------------------------------------------------------
+
 
 class _FakeRegistry:
     """Minimal registry stub for factory tests."""
@@ -257,6 +261,7 @@ class TestEnemyFactory:
 # ---------------------------------------------------------------------------
 # Combat resolution tests (player attacks enemy)
 # ---------------------------------------------------------------------------
+
 
 class TestCombatResolution:
     def test_player_attack_hits_enemy(self, dummy_enemy: Enemy) -> None:

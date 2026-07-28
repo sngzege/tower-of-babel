@@ -53,6 +53,7 @@ def _reachable_count(floor: FloorData) -> int:
 
 # -- Basic assembly tests --
 
+
 def test_assemble_3_room_floor(registry: ContentRegistry) -> None:
     """A 3-room floor should produce 3 rooms."""
     graph = generate_floor_graph(42, config={"min_rooms": 3, "max_rooms": 3})
@@ -95,10 +96,11 @@ def test_exit_reachable_from_start(registry: ContentRegistry) -> None:
     graph = generate_floor_graph(42)
     floor = assemble_floor(graph, registry)
     count = _reachable_count(floor)
-    assert floor.exit_room_id in [
-        t for _, targets in floor.connections.items()
-        for _, t in targets
-    ] or floor.exit_room_id == floor.start_room_id
+    assert (
+        floor.exit_room_id
+        in [t for _, targets in floor.connections.items() for _, t in targets]
+        or floor.exit_room_id == floor.start_room_id
+    )
     assert count >= 2  # at least start + exit
 
 
@@ -113,6 +115,7 @@ def test_all_doors_have_position(registry: ContentRegistry) -> None:
 
 
 # -- Determinism tests --
+
 
 def test_same_seed_produces_same_rooms(registry: ContentRegistry) -> None:
     """Same seed → same room count and same start/exit ids."""
@@ -139,6 +142,7 @@ def test_different_seeds_produce_different_floors(registry: ContentRegistry) -> 
 
 # -- Edge cases --
 
+
 def test_minimum_3_rooms(registry: ContentRegistry) -> None:
     """Minimum floor should have at least start + 1 combat + boss."""
     graph = generate_floor_graph(42, config={"min_rooms": 3, "max_rooms": 3})
@@ -157,12 +161,11 @@ def test_no_nonexistent_door_targets(registry: ContentRegistry) -> None:
 
 # -- 20-seed smoke test (Phase 7) --
 
+
 def test_20_seeds_produce_valid_floors(registry: ContentRegistry) -> None:
     """20 seeds should produce 20 valid floors, all with reachable exits."""
     for seed in range(1, 21):
-        graph = generate_floor_graph(
-            seed, config={"min_rooms": 4, "max_rooms": 8}
-        )
+        graph = generate_floor_graph(seed, config={"min_rooms": 4, "max_rooms": 8})
         floor = assemble_floor(graph, registry, seed=seed)
 
         # Must have at least start + 1 room + exit.
@@ -198,6 +201,7 @@ def test_same_seed_same_template_selection(registry: ContentRegistry) -> None:
 
 
 # -- Phase 7: floor exit + encounters --
+
 
 def test_exit_room_has_floor_exit_door(registry: ContentRegistry) -> None:
     """The exit room must always have a door targeting the floor exit."""

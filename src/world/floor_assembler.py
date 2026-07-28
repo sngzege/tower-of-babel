@@ -279,8 +279,7 @@ def assemble_floor(
     start_room_id = _room_id_for(graph.rooms[graph.start_uid])
     exit_room_id = _room_id_for(graph.rooms[graph.boss_uid])
     templates = {
-        uid_to_room_id[uid]: template
-        for uid, template in uid_to_template.items()
+        uid_to_room_id[uid]: template for uid, template in uid_to_template.items()
     }
 
     return FloorData(

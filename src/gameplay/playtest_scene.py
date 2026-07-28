@@ -1,11 +1,13 @@
-"""Greybox playtest scene: greybox playable slice with combat and
-Phase 7 multi-floor stage traversal.
+"""
+Playtest scene: greybox vertical slice with full run lifecycle,
+encounter system, rewards, boss, and restart.
 
-Supports both single-room mode (legacy) and stage mode.
-In stage mode, the scene is driven by a StageManager: the player traverses
-the connected rooms of each floor, and floor exits advance to the next
-floor until the stage is complete. Enemy population comes from the
-assembled floor data (encounters + template spawn points), not hardcoded.
+Phase 8 integrates:
+  - Run lifecycle (RunManager)
+  - Room encounter (clear detection, door locking)
+  - Reward system (3-choice, data-driven buffs)
+  - Boss detection
+  - Death/victory states with restart
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from gameplay.combat.combat_system import (
     CombatSystem,
 )
 from gameplay.combat.damage import DamageInstance
+from gameplay.combat.encounter import RoomEncounter
 from gameplay.enemies.enemy import Enemy
 from gameplay.enemies.enemy_ai import SimpleAI
 from gameplay.enemies.enemy_factory import build_enemy
@@ -25,7 +28,9 @@ from gameplay.player.aim_controller import AimController
 from gameplay.player.player import Player
 from gameplay.player.player_controller import PlayerController
 from gameplay.player.player_state import PlayerState
-from input.input_manager import ActionFrame
+from gameplay.roguelike.rewards import apply_reward, get_random_rewards
+from gameplay.roguelike.run import RunManager
+from input.input_manager import Action, ActionFrame
 from physics.collision import AABB, CollisionWorld
 from rendering.camera import Camera
 from rendering.renderer import Color, Renderer
@@ -46,9 +51,11 @@ _ENEMY_ATTACK_COLOR: Color = (255, 80, 80)
 _ENEMY_HURTBOX_ALPHA: Color = (200, 60, 60)
 _HEALTH_BAR_BG: Color = (50, 50, 50)
 _HEALTH_BAR_FG: Color = (80, 200, 80)
-_HEALTH_BAR_ENEMY_Y_OFFSET = 20.0
 _HEALTH_BAR_WIDTH = 24.0
 _HEALTH_BAR_HEIGHT = 3.0
+_HEALTH_BAR_ENEMY_Y_OFFSET = 20.0
+_OVERLAY_BG: Color = (0, 0, 0)
+_TEXT_COLOR: Color = (230, 230, 230)
 
 _STATE_COLORS: dict[PlayerState, Color] = {
     PlayerState.IDLE: (190, 190, 215),
@@ -58,25 +65,25 @@ _STATE_COLORS: dict[PlayerState, Color] = {
     PlayerState.DEAD: (90, 90, 90),
 }
 _INVULNERABLE_TINT: Color = (255, 255, 255)
+_YELLOW: Color = (255, 200, 50)
+_REWARD_COLORS: list[Color] = [
+    (200, 80, 80),
+    (80, 160, 200),
+    (80, 200, 100),
+]
 
 
 def _fallback_enemy_spawns(room: Room) -> list[tuple[float, float]]:
-    """Default enemy spawn points when a template defines none.
-
-    A small deterministic ring right of the room center; used only when a
-    room with an encounter has no explicit ``enemy_spawns``.
-    """
-    center_x = room.width / 2.0
-    center_y = room.height / 2.0
+    cx, cy = room.width / 2.0, room.height / 2.0
     return [
-        (center_x + 160.0, center_y - 60.0),
-        (center_x + 160.0, center_y + 60.0),
-        (center_x + 260.0, center_y),
+        (cx + 160.0, cy - 60.0),
+        (cx + 160.0, cy + 60.0),
+        (cx + 260.0, cy),
     ]
 
 
 class PlaytestScene(Scene):
-    """Playable greybox room: move, dodge, collide, camera follow, aim, attack."""
+    """Greybox vertical slice: full run lifecycle, combat, rewards, boss, restart."""
 
     scene_id = SceneID.DUNGEON
 
@@ -102,74 +109,114 @@ class PlaytestScene(Scene):
         self._enemies: list[tuple[Enemy, SimpleAI]] = enemies or []
         self.stage_completed = False
 
-        # Phase 7: Stage manager for room/floor transitions.
         self._stage_manager = stage_manager
         if stage_manager is not None:
             stage_manager.on_transition(self._on_room_transition)
             stage_manager.on_stage_complete(self._on_stage_complete)
 
+        self._run = RunManager()
+        self._encounter: RoomEncounter = RoomEncounter()
+        self._reward_options: list = []
+        self._reward_pending = False
+
     @property
     def enemies(self) -> tuple[tuple[Enemy, SimpleAI], ...]:
-        """The enemies currently populating the room (read-only view)."""
         return tuple(self._enemies)
 
-    # -- Room/floor transition callbacks --
+    # -- Transitions --
 
-    def _on_room_transition(
-        self, new_room: Room, spawn_x: float, spawn_y: float
-    ) -> None:
-        """Callback fired when the player walks through a door or floor exit."""
+    def _on_room_transition(self, new_room: Room, sx: float, sy: float) -> None:
         self.room = new_room
         self.world = new_room.build_collision_world()
-        self.player.body.teleport(spawn_x, spawn_y)
-        self.camera.center_on(spawn_x, spawn_y)
+        self.player.body.teleport(sx, sy)
+        self.camera.center_on(sx, sy)
         self.camera.set_bounds(self.room.bounds)
-
-        # Spawn enemies for the new room from the floor's encounter data.
         self._spawn_room_enemies()
+        self._encounter = RoomEncounter()
+        self._reward_pending = False
+
+        # Boss floor detection.
+        if new_room.kind == "boss":
+            self._run.start_boss()
 
     def _on_stage_complete(self) -> None:
-        """Callback fired once when the final floor exit is reached."""
         self.stage_completed = True
-        _logger.info("Stage complete — the greybox stage exit was reached")
+        _logger.info("Stage complete!")
 
     def _spawn_room_enemies(self) -> None:
-        """Populate the current room from its assembled encounter data."""
         self._enemies.clear()
-
         if self._registry is None or self._stage_manager is None:
             return
-
         encounter = self._stage_manager.current_floor.encounters.get(
             self.room.room_id, ()
         )
         if not encounter:
             return
-
-        spawn_points = list(self.room.enemy_spawns) or _fallback_enemy_spawns(self.room)
-        index = 0
-        for enemy_id, count in encounter:
+        spawns = list(self.room.enemy_spawns) or _fallback_enemy_spawns(self.room)
+        idx = 0
+        for eid, count in encounter:
             for _ in range(count):
-                x, y = spawn_points[index % len(spawn_points)]
-                self._enemies.append(
-                    build_enemy(self._registry, enemy_id, x=x, y=y)
-                )
-                index += 1
+                x, y = spawns[idx % len(spawns)]
+                self._enemies.append(build_enemy(self._registry, eid, x=x, y=y))
+                idx += 1
+        self._encounter.activate(len(self._enemies))
 
-    # -- Lifecycle --
+    def _restart_run(self) -> None:
+        self.player.reset()
+        self._run.reset()
+        self._run.start()
+        if self._stage_manager is not None:
+            self._stage_manager.start()
+            start = self._stage_manager.current_room
+            if start is not None:
+                self.room = start
+                self.world = start.build_collision_world()
+                self.player.body.teleport(*start.player_spawn)
+                self.camera.center_on(*start.player_spawn)
+                self.camera.set_bounds(self.room.bounds)
+                self._spawn_room_enemies()
+        self._encounter = RoomEncounter()
+        self._reward_options = []
+        self._reward_pending = False
+        self.stage_completed = False
 
-    def enter(self) -> None:
-        spawn_x, spawn_y = self.room.player_spawn
-        self.player.body.teleport(spawn_x, spawn_y)
-        self.camera.center_on(spawn_x, spawn_y)
+    def _handle_reward_selection(self, frame: ActionFrame) -> None:
+        """Select reward based on keyboard aim direction (1/2/3)."""
+        if not self._reward_options:
+            self._reward_pending = False
+            return
+        idx = -1
+        if frame.aim_x > 0.5:
+            idx = 0
+        elif frame.aim_x < -0.5:
+            idx = 2
+        elif frame.aim_y > 0.5 or frame.aim_y < -0.5:
+            idx = 1
+        if idx >= 0 and idx < len(self._reward_options):
+            apply_reward(self._reward_options[idx], self.player)
+            self._run.state.rewards_collected.append(self._reward_options[idx].id)
+            self._reward_options = []
+            self._reward_pending = False
+
+    # -- Main update --
 
     def update(self, frame: ActionFrame, dt: float) -> None:
+        # Restart on game-over.
+        if self._run.ended:
+            if Action.PRIMARY_ATTACK in frame.pressed:
+                self._restart_run()
+            return
+
+        # Reward selection paused state.
+        if self._reward_pending:
+            self._handle_reward_selection(frame)
+            return
+
         aim = self._aim.resolve(frame, self.player.body.x, self.player.body.y)
         self.player.set_aim(aim.direction[0], aim.direction[1])
         intent = self._controller.build_intent(frame)
         self.player.update(intent, self.world, dt)
 
-        # Update enemies (AI + combat timers + movement).
         for enemy, ai in self._enemies:
             if not enemy.alive:
                 continue
@@ -177,22 +224,21 @@ class PlaytestScene(Scene):
             enemy.update(dt)
             enemy.integrate(dt)
 
-        # -- Hit resolution --
-        # Player attack hitboxes.
+        # -- Hitboxes --
         player_hitboxes: list[tuple[str, AABB, DamageInstance]] = []
         if self.player.attack_executor.hitbox_active():
-            aim_x, aim_y = self.player.aim_vector
-            hb_aabb = self.player.attack_executor.hitbox_for(
+            ax, ay = self.player.aim_vector
+            hb = self.player.attack_executor.hitbox_for(
                 self.player.body.x,
                 self.player.body.y,
-                facing_x=aim_x,
-                facing_y=aim_y,
+                facing_x=ax,
+                facing_y=ay,
             )
-            if hb_aabb is not None:
+            if hb is not None:
                 player_hitboxes.append(
                     (
                         "player",
-                        hb_aabb,
+                        hb,
                         DamageInstance(
                             value=self.player.attack_executor.data.damage,
                             types=self.player.attack_executor.data.damage_types,
@@ -201,17 +247,16 @@ class PlaytestScene(Scene):
                     )
                 )
 
-        # Enemy attack hitboxes.
         enemy_hitboxes: list[tuple[str, AABB, DamageInstance]] = []
         for enemy, _ai in self._enemies:
             if not enemy.alive:
                 continue
-            hitbox_aabb = enemy.hitbox_aabb
-            if hitbox_aabb is not None:
+            ha = enemy.hitbox_aabb
+            if ha is not None:
                 enemy_hitboxes.append(
                     (
                         enemy.entity.name,
-                        hitbox_aabb,
+                        ha,
                         DamageInstance(
                             value=enemy.attack_executor.data.damage,
                             types=enemy.attack_executor.data.damage_types,
@@ -220,26 +265,29 @@ class PlaytestScene(Scene):
                     )
                 )
 
-        # Resolve player attacks → enemies.
+        # Resolve hits.
         if player_hitboxes:
-            enemy_entities = [
+            ents = [
                 CombatEntity(
-                    id=enemy.entity.name,
-                    body_x=enemy.body.x,
-                    body_y=enemy.body.y,
-                    hurtbox_aabb=enemy.hurtbox.box_at(enemy.body.x, enemy.body.y),
-                    vulnerable=enemy.alive,
-                    damage_target=enemy,
-                    invuln_service=enemy.invuln_service,
+                    id=e.entity.name,
+                    body_x=e.body.x,
+                    body_y=e.body.y,
+                    hurtbox_aabb=e.hurtbox.box_at(e.body.x, e.body.y),
+                    vulnerable=e.alive,
+                    damage_target=e,
+                    invuln_service=e.invuln_service,
                 )
-                for enemy, _ai in self._enemies
-                if enemy.alive
+                for e, _ in self._enemies
+                if e.alive
             ]
-            self._combat.resolve_hits(player_hitboxes, enemy_entities)
+            hits = self._combat.resolve_hits(player_hitboxes, ents)
+            for hit in hits:
+                if hit.result.killed:
+                    self._encounter.on_enemy_died()
+                    self._run.on_enemy_kill()
 
-        # Resolve enemy attacks → player.
         if enemy_hitboxes and self.player.alive:
-            player_entity = [
+            pe = [
                 CombatEntity(
                     id="player",
                     body_x=self.player.body.x,
@@ -252,16 +300,31 @@ class PlaytestScene(Scene):
                     invuln_service=self.player.invuln_service,
                 )
             ]
-            hits = self._combat.resolve_hits(enemy_hitboxes, player_entity)
+            hits = self._combat.resolve_hits(enemy_hitboxes, pe)
             for hit in hits:
                 if hit.result.dealt > 0:
                     self.player.set_hitstun(0.15)
                     self.player.on_hit(0.15)
                     if self.player.health <= 0.0:
                         self.player.die()
+                        self._run.on_death()
 
-        # Check room/floor transition.
-        if self._stage_manager is not None:
+        # Room cleared → reward.
+        if self._encounter.cleared and not self._reward_pending:
+            self._run.on_room_clear()
+            self._reward_options = get_random_rewards(3)
+            self._reward_pending = True
+
+        # Player died (state check).
+        if self.player.state is PlayerState.DEAD and not self._run.ended:
+            self._run.on_death()
+
+        # Stage complete check.
+        if self.stage_completed:
+            self._run.on_victory()
+
+        # Room transition.
+        if self._stage_manager is not None and not self._reward_pending:
             door = self._stage_manager.check_transition(self.player.body.box)
             if door is not None:
                 self._stage_manager.transition(door)
@@ -275,71 +338,64 @@ class PlaytestScene(Scene):
         for solid in self.room.solids:
             renderer.draw_rect(self.camera.screen_rect(solid), _WALL_COLOR)
 
-        # Render enemies.
         for enemy, _ai in self._enemies:
             if not enemy.alive:
                 continue
-            color = _ENEMY_COLOR
-            renderer.draw_rect(
-                self.camera.screen_rect(enemy.body.box), color
-            )
-            hurtbox_aabb = enemy.hurtbox.box_at(enemy.body.x, enemy.body.y)
-            renderer.draw_rect(
-                self.camera.screen_rect(hurtbox_aabb),
-                _ENEMY_HURTBOX_ALPHA,
-            )
-            health_ratio = enemy.health / enemy.config.max_health
-            bar_x = enemy.body.x - _HEALTH_BAR_WIDTH / 2.0
-            bar_y = enemy.body.y - _HEALTH_BAR_ENEMY_Y_OFFSET
-            bg_rect = AABB(bar_x, bar_y, _HEALTH_BAR_WIDTH, _HEALTH_BAR_HEIGHT)
-            renderer.draw_rect(self.camera.screen_rect(bg_rect), _HEALTH_BAR_BG)
-            if health_ratio > 0.0:
-                fg_rect = AABB(
-                    bar_x, bar_y,
-                    _HEALTH_BAR_WIDTH * health_ratio,
-                    _HEALTH_BAR_HEIGHT,
-                )
-                renderer.draw_rect(
-                    self.camera.screen_rect(fg_rect), _HEALTH_BAR_FG
-                )
+            renderer.draw_rect(self.camera.screen_rect(enemy.body.box), _ENEMY_COLOR)
+            ha = enemy.hurtbox.box_at(enemy.body.x, enemy.body.y)
+            renderer.draw_rect(self.camera.screen_rect(ha), _ENEMY_HURTBOX_ALPHA)
+            ratio = enemy.health / enemy.config.max_health
+            bx = enemy.body.x - _HEALTH_BAR_WIDTH / 2.0
+            by = enemy.body.y - _HEALTH_BAR_ENEMY_Y_OFFSET
+            bg = AABB(bx, by, _HEALTH_BAR_WIDTH, _HEALTH_BAR_HEIGHT)
+            renderer.draw_rect(self.camera.screen_rect(bg), _HEALTH_BAR_BG)
+            if ratio > 0.0:
+                fg = AABB(bx, by, _HEALTH_BAR_WIDTH * ratio, _HEALTH_BAR_HEIGHT)
+                renderer.draw_rect(self.camera.screen_rect(fg), _HEALTH_BAR_FG)
+            eha = enemy.hitbox_aabb
+            if eha is not None:
+                renderer.draw_rect(self.camera.screen_rect(eha), _ENEMY_ATTACK_COLOR)
 
-            hitbox_aabb = enemy.hitbox_aabb
-            if hitbox_aabb is not None:
-                renderer.draw_rect(
-                    self.camera.screen_rect(hitbox_aabb), _ENEMY_ATTACK_COLOR
-                )
-
-        # Render player.
         pose = self.player.animation_pose
         color = _STATE_COLORS[pose.state]
         if self.player.invulnerable:
             color = _INVULNERABLE_TINT
         renderer.draw_rect(self.camera.screen_rect(self.player.body.box), color)
 
-        # Player attack hitbox (raw 360° aim_vector).
         if self.player.attack_executor.hitbox_active():
-            aim_x, aim_y = self.player.aim_vector
-            hitbox_aabb = self.player.attack_executor.hitbox_for(
+            ax, ay = self.player.aim_vector
+            hb = self.player.attack_executor.hitbox_for(
                 self.player.body.x,
                 self.player.body.y,
-                facing_x=aim_x,
-                facing_y=aim_y,
+                facing_x=ax,
+                facing_y=ay,
             )
-            if hitbox_aabb is not None:
-                renderer.draw_rect(
-                    self.camera.screen_rect(hitbox_aabb), _ATTACK_HITBOX_COLOR
-                )
+            if hb is not None:
+                renderer.draw_rect(self.camera.screen_rect(hb), _ATTACK_HITBOX_COLOR)
 
-        # Facing direction marker.
-        facing_x, facing_y = pose.facing.vector
+        fx, fy = pose.facing.vector
         marker = AABB(
             self.player.body.x
-            + facing_x * _FACING_MARKER_DISTANCE
+            + fx * _FACING_MARKER_DISTANCE
             - _FACING_MARKER_SIZE / 2.0,
             self.player.body.y
-            + facing_y * _FACING_MARKER_DISTANCE
+            + fy * _FACING_MARKER_DISTANCE
             - _FACING_MARKER_SIZE / 2.0,
             _FACING_MARKER_SIZE,
             _FACING_MARKER_SIZE,
         )
         renderer.draw_rect(self.camera.screen_rect(marker), _FACING_COLOR)
+
+        # Reward overlay.
+        if self._reward_pending and self._reward_options:
+            for i, rew in enumerate(self._reward_options):
+                rx = 40 + i * 120
+                ry = 60
+                rw, rh = 100, 40
+                renderer.draw_rect((rx, ry, rw, rh), _REWARD_COLORS[i % 3])
+                renderer.draw_rect((rx + 2, ry + 2, rw - 4, rh - 4), (30, 30, 30))
+
+        # Game-over overlay (full-screen dark overlay, no text renderer yet).
+        if self._run.ended:
+            w, h = renderer.size
+            renderer.draw_rect((0, 0, w, h), (0, 0, 0))

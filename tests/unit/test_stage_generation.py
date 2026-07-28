@@ -96,6 +96,7 @@ def _exit_door(floor: FloorData) -> Door:
 
 # -- Stage data loading and config parsing --
 
+
 def test_first_stage_document_loads(
     registry: ContentRegistry, stage_config: StageConfig
 ) -> None:
@@ -148,6 +149,7 @@ def test_config_rejects_bad_branch_chance() -> None:
 
 # -- Parameterized multi-floor generation --
 
+
 def test_generate_stage_creates_configured_floor_count(
     registry: ContentRegistry, stage_config: StageConfig
 ) -> None:
@@ -189,6 +191,7 @@ def test_floor_seed_derivation_is_stable() -> None:
 
 
 # -- Determinism --
+
 
 def test_same_seed_produces_same_stage(
     registry: ContentRegistry, stage_config: StageConfig
@@ -234,6 +237,7 @@ def test_template_pools_actually_used(
 
 # -- Reachability and floor exits --
 
+
 def test_every_room_reachable_from_start(
     registry: ContentRegistry, stage_config: StageConfig
 ) -> None:
@@ -259,6 +263,7 @@ def test_every_floor_exit_reachable_and_has_exit_door(
 
 
 # -- Encounter population --
+
 
 def test_encounters_populated_from_data(
     registry: ContentRegistry, stage_config: StageConfig
@@ -301,6 +306,7 @@ def test_encounter_density_matches_template(
 
 
 # -- StageManager traversal --
+
 
 def test_stage_manager_walks_all_floors_to_completion(
     registry: ContentRegistry, stage_config: StageConfig
@@ -375,6 +381,7 @@ def test_stage_manager_check_transition_detects_overlap(
 
 
 # -- Template structural validity --
+
 
 def _all_pool_templates() -> list[str]:
     return sorted({t for pool in _KIND_TO_TEMPLATES.values() for t in pool})

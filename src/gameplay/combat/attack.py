@@ -27,6 +27,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 from physics.collision import AABB, CollisionLayer
 
@@ -68,12 +69,30 @@ class AttackData:
     damage: float = 10.0
     damage_types: frozenset[str] = frozenset({"physical"})
     hitbox_spread: float = 16.0  # width perpendicular to facing
-    hitbox_reach: float = 36.0   # length along the facing direction
+    hitbox_reach: float = 36.0  # length along the facing direction
     knockback_x: float = 0.0
     knockback_y: float = 0.0
     status_tags: frozenset[str] = frozenset()
     layer: str = CollisionLayer.PLAYER_HITBOX.value
     target_layers: frozenset[str] = frozenset({CollisionLayer.ENEMY_HURTBOX.value})
+
+    @classmethod
+    def from_document(cls, document: dict[str, Any]) -> AttackData:
+        """Build AttackData from a data/combat/attacks document."""
+        hitbox = document.get("hitbox", {})
+        return cls(
+            id=str(document.get("id", "unknown")),
+            windup=float(document.get("windup", 0.0)),
+            active=float(document.get("active", 0.15)),
+            recovery=float(document.get("recovery", 0.1)),
+            cooldown=float(document.get("cooldown", 0.3)),
+            damage=float(document.get("damage", 10.0)),
+            damage_types=frozenset(document.get("damage_types", ["physical"])),
+            hitbox_spread=float(hitbox.get("spread", 16.0)),
+            hitbox_reach=float(hitbox.get("reach", 36.0)),
+            knockback_x=float(document.get("knockback", {}).get("x", 0.0)),
+            knockback_y=float(document.get("knockback", {}).get("y", 0.0)),
+        )
 
 
 @dataclass

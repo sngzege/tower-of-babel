@@ -69,9 +69,9 @@ def test_hitbox_active_only_in_active_phase() -> None:
 
 
 def test_active_to_recovery_to_cooldown_to_idle() -> None:
-    exe = AttackExecutor(_attack_data(
-        windup=0.0, active=0.1, recovery=0.05, cooldown=0.2
-    ))
+    exe = AttackExecutor(
+        _attack_data(windup=0.0, active=0.1, recovery=0.05, cooldown=0.2)
+    )
     exe.trigger()
     exe.update(0.01)
     assert exe.state.phase is AttackPhase.ACTIVE
@@ -87,9 +87,9 @@ def test_active_to_recovery_to_cooldown_to_idle() -> None:
 
 
 def test_no_cooldown_skips_phase() -> None:
-    exe = AttackExecutor(_attack_data(
-        windup=0.0, active=0.1, recovery=0.05, cooldown=0.0
-    ))
+    exe = AttackExecutor(
+        _attack_data(windup=0.0, active=0.1, recovery=0.05, cooldown=0.0)
+    )
     exe.trigger()
     exe.update(0.01)  # windup -> active (windup=0, immediate)
     assert exe.state.phase is AttackPhase.ACTIVE
@@ -114,9 +114,9 @@ def test_hitbox_for_returns_none_when_not_active() -> None:
 
 
 def test_hitbox_for_returns_aabb_when_active() -> None:
-    exe = AttackExecutor(_attack_data(
-        windup=0.0, active=0.1, hitbox_spread=14.0, hitbox_reach=30.0
-    ))
+    exe = AttackExecutor(
+        _attack_data(windup=0.0, active=0.1, hitbox_spread=14.0, hitbox_reach=30.0)
+    )
     exe.trigger()
     exe.update(0.01)
     aabb = exe.hitbox_for(100.0, 100.0, facing_x=1.0, facing_y=0.0)
@@ -139,9 +139,9 @@ def test_hitbox_for_returns_aabb_when_active() -> None:
 
 
 def test_full_attack_cycle_returns_to_idle() -> None:
-    exe = AttackExecutor(_attack_data(
-        windup=0.05, active=0.1, recovery=0.05, cooldown=0.2
-    ))
+    exe = AttackExecutor(
+        _attack_data(windup=0.05, active=0.1, recovery=0.05, cooldown=0.2)
+    )
     exe.trigger()
     total = 0.0
     while exe.state.phase is not AttackPhase.IDLE:
