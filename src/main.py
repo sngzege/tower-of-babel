@@ -31,6 +31,7 @@ _logger = get_logger(__name__)
 
 CONTENT_CATEGORIES = (
     "player",
+    "classes",
     "combat",
     "weapons",
     "abilities",

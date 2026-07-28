@@ -147,6 +147,7 @@ class PlaytestScene(Scene):
 
         # Phase 10: class loadout.
         self._apply_class_loadout("warrior")
+        self._temp_ability_hitbox: tuple[AABB, DamageInstance] | None = None
 
     @property
     def enemies(self) -> tuple[tuple[Enemy, SimpleAI], ...]:
@@ -244,19 +245,26 @@ class PlaytestScene(Scene):
         """Load abilities from BuildState into player's ability slots."""
         if self._registry is None:
             return
+        slot_order = ["skill_q", "skill_e", "skill_r", "aura"]
+        # Map human-readable slot names to executor keys.
+        slot_to_key = {
+            "skill_q": "skill_q",
+            "skill_e": "skill_e",
+            "skill_r": "skill_r",
+            "aura": "aura",
+        }
         for i, ability_id in enumerate(self._run.build.ability_ids):
             if i >= 4:
                 break
-            slot_order = ["skill_q", "skill_e", "skill_r", "aura"]
             slot = slot_order[i]
             try:
                 doc = self._registry.get("abilities", ability_id)
                 from gameplay.builds.ability import AbilityData, AbilityExecutor
                 ad = AbilityData.from_document(doc)
-                slot_key = self.player._ability_slot_map.get(slot, "")
+                slot_key = slot_to_key.get(slot, "")
                 if slot_key and slot_key in self.player.ability_executors:
                     self.player.ability_executors[slot_key] = AbilityExecutor(ad)
-                    _logger.info("Applied ability '%s' to slot %s", ability_id, slot)
+                    _logger.info("Applied ability '%s' to slot %s", ability_id, slot_key)
             except Exception as exc:
                 _logger.warning("Failed to load ability '%s': %s", ability_id, exc)
 
@@ -497,6 +505,93 @@ class PlaytestScene(Scene):
 
     # -- Main update --
 
+    def _process_ability_effects(self, dt: float) -> None:
+        """Execute effects for any abilities activated this frame."""
+        if self._registry is None:
+            return
+        for slot_key, executor in self.player.ability_executors.items():
+            if not executor.state.just_activated:
+                continue
+            executor.state.just_activated = False  # consumed
+            data = executor.data
+            effects = data.effects
+            if not effects:
+                continue
+
+            fx, fy = self.player.aim_vector
+            length = (fx * fx + fy * fy) ** 0.5
+            if length > 0.001:
+                fx, fy = fx / length, fy / length
+            else:
+                fx, fy = 0.0, -1.0
+
+            px, py = self.player.body.x, self.player.body.y
+            aim_vec = (fx, fy)
+
+            for effect in effects:
+                etype = str(effect.get("type", ""))
+
+                if etype == "dash":
+                    distance = float(effect.get("distance", 120.0))
+                    dmg = float(effect.get("damage", 0))
+                    dmg_types = frozenset(effect.get("damage_types", ["physical"]))
+                    # Apply dash movement.
+                    self.player.body.x += fx * distance
+                    self.player.body.y += fy * distance
+                    self.camera.center_on(self.player.body.x, self.player.body.y)
+                    # Create dash hitbox along the path.
+                    if dmg > 0:
+                        dash_hb = AABB(
+                            px + fx * distance * 0.3 - 20.0,
+                            py + fy * distance * 0.3 - 12.0,
+                            40.0, 24.0,
+                        )
+                        self._temp_ability_hitbox = (
+                            dash_hb,
+                            DamageInstance(value=dmg, types=dmg_types,
+                                           source_layer="player_hitbox"),
+                        )
+
+                elif etype == "aoe":
+                    range_val = float(effect.get("range", 60.0))
+                    dmg = float(effect.get("damage", 0))
+                    dmg_types = frozenset(effect.get("damage_types", ["physical"]))
+                    if dmg > 0:
+                        aoe_hb = AABB(px - range_val, py - range_val,
+                                       range_val * 2, range_val * 2)
+                        self._temp_ability_hitbox = (
+                            aoe_hb,
+                            DamageInstance(value=dmg, types=dmg_types,
+                                           source_layer="player_hitbox"),
+                        )
+
+                elif etype == "knockback":
+                    range_val = float(effect.get("range", 60.0))
+                    dmg = float(effect.get("damage", 0))
+                    dmg_types = frozenset(effect.get("damage_types", ["physical"]))
+                    if dmg > 0:
+                        kb_hb = AABB(px - range_val, py - range_val,
+                                      range_val * 2, range_val * 2)
+                        self._temp_ability_hitbox = (
+                            kb_hb,
+                            DamageInstance(value=dmg, types=dmg_types,
+                                           source_layer="player_hitbox"),
+                        )
+
+                elif etype == "buff":
+                    stat = str(effect.get("stat", "damage"))
+                    value = float(effect.get("value", 0.0))
+                    duration = float(effect.get("duration", 3.0))
+                    is_pct = bool(effect.get("is_percent", False))
+                    # Apply buff via status effect or direct stat change.
+                    if stat == "damage" and is_pct:
+                        old = self.player.attack_executor.data.damage
+                        from dataclasses import replace
+                        self.player.attack_executor = self.player.attack_executor.__class__(
+                            replace(self.player.attack_executor.data, damage=old * (1.0 + value))
+                        )
+                        _logger.info("Buff: damage +%.0f%% for %.1fs", value * 100, duration)
+
     def update(self, frame: ActionFrame, dt: float) -> None:
         if self._run.ended:
             if Action.PRIMARY_ATTACK in frame.pressed:
@@ -517,6 +612,9 @@ class PlaytestScene(Scene):
         self.player.set_aim(aim.direction[0], aim.direction[1])
         intent = self._controller.build_intent(frame)
         self.player.update(intent, self.world, dt)
+
+        # Process ability effects (dash, aoe, knockback, buff).
+        self._process_ability_effects(dt)
 
         for enemy, ai in self._enemies:
             if not enemy.alive:
@@ -543,6 +641,12 @@ class PlaytestScene(Scene):
                         source_layer=self.player.attack_executor.data.layer,
                     ),
                 ))
+
+        # Ability hitbox (dash, aoe, knockback effects).
+        if self._temp_ability_hitbox is not None:
+            hb, dmg = self._temp_ability_hitbox
+            player_hitboxes.append(("ability", hb, dmg))
+            self._temp_ability_hitbox = None
 
         all_enemy_hitboxes = self._collect_enemy_hitboxes() + self._collect_boss_hitboxes()
 
@@ -693,6 +797,27 @@ class PlaytestScene(Scene):
             _FACING_MARKER_SIZE, _FACING_MARKER_SIZE,
         )
         renderer.draw_rect(self.camera.screen_rect(marker), _FACING_COLOR)
+
+        # Ability cooldown HUD (top-right).
+        w, h = renderer.size
+        slot_labels = ["Q", "E", "R", "T"]
+        slot_keys = ["skill_q", "skill_e", "skill_r", "aura"]
+        for i, (label, slot_key) in enumerate(zip(slot_labels, slot_keys)):
+            exec_ = self.player.ability_executors.get(slot_key)
+            if exec_ is None:
+                continue
+            sx = w - 140
+            sy = 10 + i * 35
+            sw_int, sh_int = 120, 28
+            # Background.
+            renderer.draw_rect((sx, sy, sw_int, sh_int), (30, 30, 30))
+            # Cooldown fill.
+            frac = exec_.ready_fraction
+            if frac < 1.0:
+                fill_w = int((sw_int - 4) * frac)
+                renderer.draw_rect((sx + 2, sy + 2, fill_w, sh_int - 4), (60, 60, 180))
+            else:
+                renderer.draw_rect((sx + 2, sy + 2, sw_int - 4, sh_int - 4), (60, 150, 60))
 
         # Reward overlay.
         if self._reward_pending:

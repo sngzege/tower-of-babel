@@ -56,6 +56,7 @@ class AbilityState:
     """Runtime state for one ability instance."""
     elapsed: float = 0.0
     ready: bool = True
+    just_activated: bool = False  # True for one frame after activation
 
 
 class AbilityExecutor:
@@ -65,13 +66,22 @@ class AbilityExecutor:
       executor = AbilityExecutor(ability_data)
       if executor.can_activate():
           executor.activate()
-          # apply effects
+          # check executor.just_activated next frame for effects
       executor.update(dt)
     """
 
     def __init__(self, data: AbilityData) -> None:
         self.data = data
         self.state = AbilityState()
+
+    @property
+    def ready_fraction(self) -> float:
+        """0.0 = just activated, 1.0 = ready."""
+        if self.state.ready:
+            return 1.0
+        if self.data.cooldown <= 0:
+            return 1.0
+        return min(self.state.elapsed / self.data.cooldown, 1.0)
 
     def can_activate(self) -> bool:
         return self.state.ready
@@ -80,11 +90,11 @@ class AbilityExecutor:
         """Activate the ability if ready. Returns True on success."""
         if not self.state.ready:
             return False
-        self.state = AbilityState(elapsed=0.0, ready=False)
+        self.state = AbilityState(elapsed=0.0, ready=False, just_activated=True)
         return True
 
     def update(self, dt: float) -> None:
-        """Advance cooldown."""
+        """Advance cooldown. The scene clears just_activated after processing."""
         if not self.state.ready:
             self.state.elapsed += dt
             if self.state.elapsed >= self.data.cooldown:

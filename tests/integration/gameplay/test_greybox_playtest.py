@@ -102,7 +102,8 @@ def test_scene_renders_floor_walls_player_and_marker() -> None:
     scene = _build_scene()
     renderer = RecordingRenderer()
     scene.render(renderer)
-    expected = 1 + len(scene.room.solids) + 2
+    # 1 floor + N solids + 1 player + 1 marker + ability HUD (4 slots × 2 rects each).
+    expected = 1 + len(scene.room.solids) + 2 + 8
     assert len(renderer.rects) == expected
 
 
