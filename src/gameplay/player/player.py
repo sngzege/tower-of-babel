@@ -30,6 +30,7 @@ from gameplay.player.dodge_charges import DodgeCharges
 from gameplay.player.player_controller import PlayerIntent
 from gameplay.player.player_state import PlayerState, build_player_state_machine
 from gameplay.player.player_stats import PlayerStats
+from gameplay.builds.ability import AbilityData, AbilityExecutor, AbilitySlot
 from physics.collision import CollisionWorld
 from physics.hitbox import Hitbox
 from physics.hurtbox import Hurtbox
@@ -132,6 +133,28 @@ class Player:
             )
         self.attack_executor = AttackExecutor(final_attack)
 
+        # Ability executors (Q/E/R/T) — initially empty, populated by build.
+        self.ability_executors: dict[str, AbilityExecutor] = {
+            AbilitySlot.SKILL_Q.value: AbilityExecutor(
+                AbilityData(id="empty_q", name="Empty", cooldown=999.0)
+            ),
+            AbilitySlot.SKILL_E.value: AbilityExecutor(
+                AbilityData(id="empty_e", name="Empty", cooldown=999.0)
+            ),
+            AbilitySlot.SKILL_R.value: AbilityExecutor(
+                AbilityData(id="empty_r", name="Empty", cooldown=999.0)
+            ),
+            AbilitySlot.AURA.value: AbilityExecutor(
+                AbilityData(id="empty_t", name="Empty", cooldown=999.0)
+            ),
+        }
+        self._ability_slot_map: dict[str, str] = {
+            "skill_1": AbilitySlot.SKILL_Q.value,
+            "skill_2": AbilitySlot.SKILL_E.value,
+            "ultimate": AbilitySlot.SKILL_R.value,
+            "aura": AbilitySlot.AURA.value,
+        }
+
         # State machine.
         self._machine = build_player_state_machine()
         self._dodge_elapsed = 0.0
@@ -191,6 +214,14 @@ class Player:
         if intent.primary_attack_pressed:
             self.attack_executor.trigger()
         self.attack_executor.update(dt)
+
+        # Handle ability intents.
+        for action_name in intent.ability_pressed:
+            slot_key = self._ability_slot_map.get(action_name.value if hasattr(action_name, 'value') else str(action_name))
+            if slot_key and slot_key in self.ability_executors:
+                self.ability_executors[slot_key].activate()
+        for executor in self.ability_executors.values():
+            executor.update(dt)
 
         if self.state is PlayerState.HIT:
             self._update_hit(intent, dt)

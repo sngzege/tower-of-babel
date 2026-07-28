@@ -8,6 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 10 — Build System Integration (2026-07-28):
+  - Ability executors wired into Player: 4 ability slots (Q/E/R/T) in Player.ability_executors dict, activation from PlayerIntent.ability_pressed via input actions (SKILL_1→Q, SKILL_2→E, ULTIMATE→R, AURA→T). AbilityExecutor.cooldown lifecycle integrated into Player.update().
+  - Ability data files: warrior_charge (dash), warrior_shield_bash (knockback+armor), warrior_whirlwind (AoE), warrior_war_cry (aura/buff). All with cooldowns and effects.
+  - Passive modifiers applied to BuildState: apply_passive_modifier() for damage, max_health, move_speed, attack_speed, dodge_charges, crit_chance, tag-specific. Passives loaded from data/passives/ and applied through PlaytestScene._apply_passives_to_player().
+  - Class loadout system: data/classes/warrior.yaml defines starting weapon/abilities/passives. PlaytestScene._apply_class_loadout() loads and applies on scene init.
+  - Weapon upgrade system: BuildState.weapon_upgrades dict (run-time modifications), add_weapon_upgrade()/get_weapon_upgrade(), applied via _reapply_weapon() which recomputes attack data with upgrade modifiers.
+  - Expanded reward pipeline: apply_boon_to_build() now handles weapon_upgrade, ability, passive boon tags to add new build components.
+  - Build state re-application on room transitions: _reapply_weapon() + _apply_build_to_player() called in _on_room_transition.
+  - 5 new tests: ability cooldown, passive + boon stacking, weapon upgrade + boon interaction, ability/passive acquisition via boons, full build reset.
+  - Suite: **306 passed + 1 skip** (up from 301).
+
 - Phase 9 — Build System Foundation (2026-07-28):
   - BuildState (`src/gameplay/builds/build_state.py`): authoritative run build representation with weapon/ability/passive/boon IDs, cached modifier values (damage_mult, move_speed_mult, attack_speed_mult, max_health_bonus, dodge_charge_bonus, crit_chance), tag-specific damage modifiers, total_damage_for() computation with tag synergy.
   - WeaponData (`src/gameplay/builds/weapon.py`): data-driven weapon definition from YAML, apply_to_attack() modifies AttackData (damage_mult, speed_mult, reach_mult, spread_mult).

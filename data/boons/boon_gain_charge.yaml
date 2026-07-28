@@ -1,0 +1,7 @@
+# Ability: gain Charge
+id: boon_gain_charge
+name: Momentum
+description: Gain the Charge ability — dash forward dealing damage.
+tags: [mobility, ability]
+effects:
+  - {type: grant_ability, ability_id: warrior_charge}

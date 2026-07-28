@@ -1,0 +1,9 @@
+# War Cry — aura ability, temporarily increases damage
+id: warrior_war_cry
+name: War Cry
+description: Let out a battle cry, increasing attack damage for a short duration.
+tags: [offense, aura]
+cooldown: 12.0
+mana_cost: 0.0
+effects:
+  - {type: buff, stat: damage, value: 0.30, duration: 5.0, is_percent: true, tags: [aura]}

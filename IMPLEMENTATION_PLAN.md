@@ -22,8 +22,9 @@
 - **Phase 6 — COMPLETE (2026-07-28):** room/dungeon foundation — Door dataclass added to Room. RoomManager (floor mode + registry mode, transition detection/callbacks). FloorAssembler (FloorGraph→connected rooms, template selection by kind, door wiring). Room templates (greybox_start, greybox_room, greybox_exit) with standard door positions. PlaytestScene floor mode with per-kind enemy spawning. `main.py` uses FloorAssembler with seeded FloorGraph. 10 assembly integrity tests. Suite: 246 passed + 1 skip. Details: CHANGELOG.md, STATUS.md.
 - **Phase 7 — COMPLETE (2026-07-28):** procedural generation — FloorAssembler extended with multi-template pools and seeded RNG selection. _KIND_TO_TEMPLATES supports multiple candidates per kind. 20-seed smoke test (all seeds produce valid floors). Suite: 248 passed + 1 skip.
 - **Phase 8 — COMPLETE (2026-07-28):** vertical slice / playable core loop — Boss entity + BossAI, boss arena, stage→boss connection, victory/death flows. Suite: **285 passed + 1 skip**.
-- **Phase 9 — COMPLETE (2026-07-28):** Build System Foundation — BuildState, weapons (sword/spear/axe), boons (11 prototype), tag-based modifiers, ability/passive data architecture, reward→build pipeline, weapon changes attack behavior. Suite: **301 passed + 1 skip**. Details: CHANGELOG.md, STATUS.md.
-- **Next phase: Phase 10 — BUILD SYSTEM CONTENT** (after Phase 9 complete).
+- **Phase 9 — COMPLETE (2026-07-28):** Build System Foundation — BuildState, weapons (sword/spear/axe), boons (11 prototype), tag-based modifiers, ability/passive data architecture, reward→build pipeline, weapon changes attack behavior. Suite: **301 passed + 1 skip**.
+- **Phase 10 — COMPLETE (2026-07-28):** Build System Integration — Ability executors wired into Player (Q/E/R/T slots), ability activation from input layer, passive modifier effects applied to BuildState, class loadout system (Warrior with weapon/abilities/passives), run weapon upgrades, expanded reward pipeline for ability/passive/upgrade acquisition, build persistence across room/floor transitions. Suite: **306 passed + 1 skip**. Details: CHANGELOG.md, STATUS.md.
+- **Next phase: Phase 11 — CONTENT EXPANSION** (after Phase 10 complete).
 
 ---
 

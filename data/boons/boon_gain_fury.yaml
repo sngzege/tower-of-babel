@@ -1,0 +1,7 @@
+# Passive: gain Fury
+id: boon_gain_fury
+name: Berserker Spirit
+description: Gain the Fury passive — +15% damage when below 50% HP.
+tags: [offense, passive]
+effects:
+  - {type: grant_passive, passive_id: fury}

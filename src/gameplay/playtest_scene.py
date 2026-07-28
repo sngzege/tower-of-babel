@@ -145,11 +145,45 @@ class PlaytestScene(Scene):
         # Phase 9: weapon choice on first room clear.
         self._pending_weapon_choice: list[str] = []
 
+        # Phase 10: class loadout.
+        self._apply_class_loadout("warrior")
+
     @property
     def enemies(self) -> tuple[tuple[Enemy, SimpleAI], ...]:
         return tuple(self._enemies)
 
     # -- Build system helpers --
+
+    def _apply_class_loadout(self, class_id: str = "warrior") -> None:
+        """Load a class definition and apply its starting loadout."""
+        if self._registry is None:
+            return
+        try:
+            doc = self._registry.get("classes", class_id)
+        except Exception:
+            _logger.warning("Class '%s' not found", class_id)
+            return
+        # Apply starting weapon.
+        weapon_id = str(doc.get("starting_weapon", "warrior_sword"))
+        self._apply_weapon_to_player(weapon_id)
+
+        # Apply starting abilities.
+        abilities = doc.get("starting_abilities", {})
+        for slot, ability_id in abilities.items():
+            if slot in ("skill_1", "skill_2", "ultimate", "aura"):
+                self._run.build.ability_ids.append(ability_id)
+
+        self._apply_abilities_to_player()
+
+        # Apply starting passives.
+        passives = doc.get("starting_passives", [])
+        for pid in passives:
+            if pid not in self._run.build.passive_ids:
+                self._run.build.passive_ids.append(pid)
+
+        self._apply_passives_to_player()
+        self._apply_build_to_player()
+        _logger.info("Applied class loadout: %s", class_id)
 
     def _apply_weapon_to_player(self, weapon_id: str) -> None:
         """Equip a weapon: update build state and player attack."""
@@ -163,15 +197,86 @@ class PlaytestScene(Scene):
             return
 
         self._run.build.weapon_id = weapon_id
+        self._reapply_weapon()
 
-        # Apply weapon to player's attack executor.
+    def _reapply_weapon(self) -> None:
+        """Re-apply current weapon + upgrades from build state."""
+        if self._registry is None:
+            return
+        weapon_id = self._run.build.weapon_id
+        if weapon_id == "unarmed":
+            return
+        try:
+            doc = self._registry.get("weapons", weapon_id)
+            weapon = WeaponData.from_document(doc)
+        except Exception:
+            _logger.warning("Weapon '%s' missing", weapon_id)
+            return
+
         base_attack = AttackData.from_document(
             self._registry.get("combat", weapon.attack_ref)
         )
+        # Apply weapon modifiers.
         modified = weapon.apply_to_attack(base_attack)
-        # Replace player's attack data.
+
+        # Apply weapon upgrades.
+        upgrades = self._run.build.weapon_upgrades
+        from dataclasses import replace
+        if upgrades:
+            dmg_bonus = upgrades.get("damage", 0.0)
+            spd_bonus = upgrades.get("attack_speed", 0.0)
+            reach_bonus = upgrades.get("reach", 0.0)
+            spread_bonus = upgrades.get("spread", 0.0)
+            if dmg_bonus:
+                from dataclasses import replace
+                modified = replace(modified, damage=modified.damage * (1.0 + dmg_bonus))
+            if spd_bonus:
+                modified = replace(modified, cooldown=modified.cooldown / (1.0 + spd_bonus))
+            if reach_bonus:
+                modified = replace(modified, hitbox_reach=modified.hitbox_reach * (1.0 + reach_bonus))
+            if spread_bonus:
+                modified = replace(modified, hitbox_spread=modified.hitbox_spread * (1.0 + spread_bonus))
+
         self.player.attack_executor = self.player.attack_executor.__class__(modified)
-        _logger.info("Equipped weapon: %s (%s)", weapon.name, weapon_id)
+        _logger.info("Re-applied weapon with upgrades: %s", weapon_id)
+
+    def _apply_abilities_to_player(self) -> None:
+        """Load abilities from BuildState into player's ability slots."""
+        if self._registry is None:
+            return
+        for i, ability_id in enumerate(self._run.build.ability_ids):
+            if i >= 4:
+                break
+            slot_order = ["skill_q", "skill_e", "skill_r", "aura"]
+            slot = slot_order[i]
+            try:
+                doc = self._registry.get("abilities", ability_id)
+                from gameplay.builds.ability import AbilityData, AbilityExecutor
+                ad = AbilityData.from_document(doc)
+                slot_key = self.player._ability_slot_map.get(slot, "")
+                if slot_key and slot_key in self.player.ability_executors:
+                    self.player.ability_executors[slot_key] = AbilityExecutor(ad)
+                    _logger.info("Applied ability '%s' to slot %s", ability_id, slot)
+            except Exception as exc:
+                _logger.warning("Failed to load ability '%s': %s", ability_id, exc)
+
+    def _apply_passives_to_player(self) -> None:
+        """Apply passive modifiers from BuildState."""
+        if self._registry is None:
+            return
+        build = self._run.build
+        for pid in build.passive_ids:
+            try:
+                doc = self._registry.get("passives", pid)
+                from gameplay.builds.passive import PassiveData
+                passive = PassiveData.from_document(doc)
+                for mod in passive.modifiers:
+                    tag_str = next(iter(mod.tags)) if mod.tags else ""
+                    build.apply_passive_modifier(
+                        mod.stat, mod.value, mod.is_percent, tag_str
+                    )
+            except Exception as exc:
+                _logger.warning("Failed to apply passive '%s': %s", pid, exc)
 
     def _apply_build_to_player(self) -> None:
         """Apply current BuildState modifiers to the player."""
@@ -183,10 +288,6 @@ class PlaytestScene(Scene):
             self.player.stats,
             move_speed=build.total_speed_for(base_speed),
         )
-
-        # Apply attack speed to existing executor.
-        base_attack_data = self.player.attack_executor.data
-        atk_speed = build.total_attack_speed_for(1.0 / base_attack_data.cooldown)
 
         # Apply max health bonus.
         if build.max_health_bonus > 0:
@@ -218,6 +319,10 @@ class PlaytestScene(Scene):
         self._spawn_room_enemies()
         self._encounter = RoomEncounter()
         self._reward_pending = False
+
+        # Re-apply build state on transition.
+        self._reapply_weapon()
+        self._apply_build_to_player()
 
         if new_room.kind == "boss":
             self._run.start_boss()
@@ -313,8 +418,12 @@ class PlaytestScene(Scene):
             self._run.state.rewards_collected.append(boon.id)
             self._reward_options = []
             self._reward_pending = False
+            # Re-apply all build systems.
+            self._reapply_weapon()
+            self._apply_abilities_to_player()
+            self._apply_passives_to_player()
             self._apply_build_to_player()
-            _logger.info("Applied boon: %s", boon.name)
+            _logger.info("Applied reward: %s", boon.name)
 
     def _weapon_choice_index(self, frame: ActionFrame) -> int:
         """Map aim direction to weapon choice index."""

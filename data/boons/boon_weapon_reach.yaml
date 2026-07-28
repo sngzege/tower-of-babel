@@ -1,0 +1,7 @@
+# Weapon reach upgrade
+id: boon_weapon_reach
+name: Extended Reach
+description: Weapon range +20%
+tags: [offense, weapon_upgrade]
+effects:
+  - {stat: reach, value: 0.20, is_percent: true}

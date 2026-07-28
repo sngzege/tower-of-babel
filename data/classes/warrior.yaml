@@ -1,0 +1,13 @@
+# Warrior class definition
+id: warrior
+name: Warrior
+description: A sturdy melee fighter who excels at close-quarters combat.
+tags: [melee, warrior]
+starting_weapon: warrior_sword
+starting_abilities:
+  skill_1: warrior_charge
+  skill_2: warrior_shield_bash
+  ultimate: warrior_whirlwind
+  aura: warrior_war_cry
+starting_passives:
+  - hardy

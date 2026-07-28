@@ -1,0 +1,7 @@
+# Weapon speed upgrade boon
+id: boon_weapon_speed
+name: Lightweight Grip
+description: Weapon attack speed +15%
+tags: [offense, weapon_upgrade]
+effects:
+  - {stat: attack_speed, value: 0.15, is_percent: true}

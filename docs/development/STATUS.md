@@ -4,13 +4,13 @@
 > developer) can resume work without re-reading the whole project.
 > **Rule:** whoever advances the project updates this file in the same
 > commit (IMPLEMENTATION_PLAN.md snapshot + CHANGELOG.md too).
-> Last updated: **2026-07-28** (Phase 9 — Build System Foundation COMPLETE).
+> Last updated: **2026-07-28** (Phase 10 — Build System Integration COMPLETE).
 
 ## 1. Where we are
 
-- **Phase 0-7:** COMPLETE.
-- **Phase 8 — Vertical Slice:** COMPLETE.
+- **Phase 0-8:** COMPLETE.
 - **Phase 9 — Build System Foundation:** COMPLETE.
+- **Phase 10 — Build System Integration:** COMPLETE.
 
 ## 2. What is playable right now
 

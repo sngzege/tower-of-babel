@@ -1,0 +1,7 @@
+# Passive: gain Hardy
+id: boon_gain_hardy
+name: Enduring Body
+description: Gain the Hardy passive — +25 max health.
+tags: [defense, passive]
+effects:
+  - {type: grant_passive, passive_id: hardy}

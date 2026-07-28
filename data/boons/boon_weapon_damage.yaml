@@ -1,0 +1,7 @@
+# Weapon damage upgrade boon
+id: boon_weapon_damage
+name: Sharpened Steel
+description: Weapon damage +15%
+tags: [offense, weapon_upgrade]
+effects:
+  - {stat: damage, value: 0.15, is_percent: true}

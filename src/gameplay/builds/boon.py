@@ -39,10 +39,39 @@ class BoonData(BuildComponent):
 def apply_boon_to_build(boon: BoonData, build: BuildState) -> None:
     """Apply a boon's effects to the build state.
 
-    Updates cached modifier values on BuildState.
+    Supports stat modifiers, tag-specific modifiers, weapon upgrades,
+    and ability/passive acquisition.
     """
     build.boon_ids.append(boon.id)
 
+    # Handle special reward categories.
+    boon_tags = boon.tags
+
+    if "weapon_upgrade" in boon_tags:
+        for effect in boon.effects:
+            stat = str(effect.get("stat", ""))
+            value = float(effect.get("value", 0.0))
+            build.add_weapon_upgrade(stat, value)
+        return
+
+    if "ability" in boon_tags:
+        ability_id = ""
+        for effect in boon.effects:
+            if effect.get("type") == "grant_ability":
+                ability_id = str(effect.get("ability_id", ""))
+        if ability_id:
+            build.ability_ids.append(ability_id)
+        return
+
+    if "passive" in boon_tags:
+        for effect in boon.effects:
+            if effect.get("type") == "grant_passive":
+                pid = str(effect.get("passive_id", ""))
+                if pid and pid not in build.passive_ids:
+                    build.passive_ids.append(pid)
+        return
+
+    # Standard boon: apply stat modifiers.
     for effect in boon.effects:
         stat = str(effect.get("stat", ""))
         value = float(effect.get("value", 0.0))
@@ -52,10 +81,7 @@ def apply_boon_to_build(boon: BoonData, build: BuildState) -> None:
         if tag:
             # Tag-specific modifier.
             current = build._tag_mods.get((stat, tag), 0.0)
-            if is_percent:
-                build._tag_mods[(stat, tag)] = current + value
-            else:
-                build._tag_mods[(stat, tag)] = current + value
+            build._tag_mods[(stat, tag)] = current + value
         else:
             # Global stat modifier.
             if stat == "damage":

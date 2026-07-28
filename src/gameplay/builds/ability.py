@@ -22,6 +22,7 @@ class AbilitySlot(Enum):
     SKILL_Q = "skill_q"
     SKILL_E = "skill_e"
     SKILL_R = "skill_r"
+    AURA = "aura"
 
 
 @dataclass(frozen=True)
