@@ -1,0 +1,51 @@
+# First Boss (Greybox) — Phase 8 vertical slice boss.
+# Two phases: Phase 1 (slow charge), Phase 2 (faster + AoE).
+# This is a PROVISIONAL placeholder for development purposes only.
+id: first_boss
+name: Warden of the First Floor
+family: boss
+role: boss
+tags: [greybox, boss, placeholder]
+stats:
+  health: 300
+  damage: 15
+  speed: 80.0
+body:
+  width: 48.0
+  height: 48.0
+hurtbox:
+  width: 44.0
+  height: 44.0
+  offset_x: 0.0
+  offset_y: 0.0
+attack:
+  windup: 0.6
+  active: 0.4
+  recovery: 0.3
+  cooldown: 2.5
+  damage: 20.0
+  damage_types: [physical]
+  hitbox_spread: 40.0
+  hitbox_reach: 48.0
+  min_range: 30.0
+  ideal_range: 50.0
+aggro_range: 400.0
+phase2:
+  speed: 110.0
+  attack:
+    windup: 0.4
+    active: 0.35
+    recovery: 0.25
+    cooldown: 1.8
+    damage: 25.0
+    hitbox_spread: 48.0
+    hitbox_reach: 52.0
+  aoe:
+    windup: 0.8
+    active: 0.5
+    recovery: 0.4
+    cooldown: 4.0
+    damage: 15.0
+    hitbox_spread: 80.0
+    hitbox_reach: 80.0
+    damage_types: [magic, shockwave]

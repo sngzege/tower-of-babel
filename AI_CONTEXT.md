@@ -1,11 +1,11 @@
 ## docs/development/STATUS.md
 → Güncel durum dosyası: her oturumun başında ÖNCE bunu oku (hangi aşamadayız,
   ne çalışıyor, doğrulama komutları, teknik borç). İş bitince güncelle.
+  **Phase 8 (Vertical Slice) COMPLETE as of 2026-07-28.**
 
 ## docs/development/CONTINUATION_PROMPT.md
 → Başka agent devam edeceğinde bu dosya kopyalanıp prompt olarak verilmeli.
-  İçinde Phase 3.5'te kaldığımız nokta, Phase 4'e kadar implementasyon, ve
-  sonraki adımlar yazar.
+  **Phase 8 artık tamamlandı, BUILD SYSTEM fazı sırada.**
 
 ## RULES.md
 → Her zaman oku.

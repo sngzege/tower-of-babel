@@ -1,0 +1,38 @@
+# Boss Arena (Phase 8) — large open arena for first boss encounter.
+# The boss spawns in the center; player enters from the left door.
+# No pillars or obstacles — open space for boss movement.
+id: greybox_boss_arena
+kind: boss
+name: Boss Arena (Greybox)
+tags: [greybox, boss]
+weight: 10
+min_depth: 0
+size: {width: 960, height: 608}
+player_spawn: {x: 80, y: 304}
+boss_spawn: {x: 480, y: 304}
+solids:
+  # Border walls (full enclosure)
+  - {x: 0,   y: 0,   w: 960, h: 16}
+  - {x: 0,   y: 592, w: 960, h: 16}
+  - {x: 0,   y: 16,  w: 16,  h: 576}
+  - {x: 944, y: 16,  w: 16,  h: 576}
+  # Two small pillars for occasional cover
+  - {x: 320, y: 240, w: 32, h: 32}
+  - {x: 608, y: 336, w: 32, h: 32}
+doors:
+  # Entry door (left wall)
+  - x: 0
+    y: 256
+    w: 16
+    h: 96
+    target_room: "boss_arena_entry"
+    spawn_x: 880
+    spawn_y: 304
+  # Victory exit (right wall, unlocked after boss defeat)
+  - x: 944
+    y: 256
+    w: 16
+    h: 96
+    target_room: "victory_exit"
+    spawn_x: 80
+    spawn_y: 304

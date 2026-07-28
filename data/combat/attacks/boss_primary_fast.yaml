@@ -1,0 +1,13 @@
+# Boss primary attack — Phase 2 faster version
+id: boss_primary_fast
+name: Boss Fast Sweep
+tags: [boss, physical]
+windup: 0.4
+active: 0.35
+recovery: 0.25
+cooldown: 1.8
+damage: 25.0
+damage_types: [physical]
+hitbox:
+  spread: 48.0
+  reach: 52.0

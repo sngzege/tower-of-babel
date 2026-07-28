@@ -36,7 +36,7 @@ FLOOR_EXIT_TARGET = "@floor_exit"
 _KIND_TO_TEMPLATES: dict[str, list[str]] = {
     "start": ["greybox_start", "greybox_start_b"],
     "combat": ["greybox_room", "greybox_combat_hall", "greybox_combat_pillars"],
-    "boss": ["greybox_exit", "greybox_exit_b"],
+    "boss": ["greybox_boss_arena"],
     "elite": ["greybox_combat_pillars"],
     "rest": ["greybox_room"],
     "shop": ["greybox_room"],

@@ -1,13 +1,13 @@
-"""Tests for Phase 7 stage generation: data-driven, seeded, multi-floor.
+"""Tests for Phase 7/8 stage generation: data-driven, seeded, multi-floor + boss floor.
 
 Verifies:
   - Stage data loads through the registry into a StageConfig.
   - Stage config parsing rejects malformed documents.
-  - generate_stage produces the configured number of floors.
-  - Floor room counts respect the stage's configured bounds.
+  - generate_stage produces config.floor_count + 1 floors (boss floor appended).
+  - Floor room counts respect the stage's configured bounds (boss floor exempt).
   - Determinism: same seed → same logical stage; different seeds vary.
-  - Every room of every floor is reachable (spine-only greybox floors).
-  - Every floor's exit room has a floor-exit door.
+  - Every room of every floor is reachable.
+  - Every floor's exit room has a floor-exit door (boss floor included).
   - Encounters are populated from data and reference real enemy ids.
   - StageManager drives room→room, floor→floor, and stage completion.
   - All room templates in the pools are structurally valid.
@@ -32,10 +32,7 @@ from world.stage import StageConfig, StageConfigError, StageData
 from world.stage_generator import floor_seed_for, generate_stage
 from world.stage_manager import StageManager
 
-# Resolve data directory relative to this test file.
 _DATA_DIR = Path(__file__).resolve().parents[2] / "data"
-
-# Enemy body half-size used for spawn-point overlap checks (greybox dummy).
 _ENEMY_HALF = 12.0
 
 
@@ -153,17 +150,20 @@ def test_config_rejects_bad_branch_chance() -> None:
 def test_generate_stage_creates_configured_floor_count(
     registry: ContentRegistry, stage_config: StageConfig
 ) -> None:
+    """generate_stage adds one boss floor, so total = config.floor_count + 1."""
     stage = generate_stage(stage_config, registry, seed=42)
-    assert stage.floor_count == stage_config.floor_count == 3
+    assert stage.floor_count == stage_config.floor_count + 1 == 4
 
 
 def test_floor_room_counts_within_stage_bounds(
     registry: ContentRegistry, stage_config: StageConfig
 ) -> None:
-    """Each floor's room count is driven by the stage's min/max rooms."""
+    """Each normal floor's room count is driven by the stage's min/max rooms.
+    The boss floor is a single room and is exempt from this check."""
     for seed in range(1, 11):
         stage = generate_stage(stage_config, registry, seed=seed)
-        for floor in stage.floors:
+        # All floors except the last (boss floor).
+        for floor in stage.floors[:-1]:
             assert stage_config.min_rooms <= len(floor.rooms) <= stage_config.max_rooms
 
 
@@ -180,9 +180,10 @@ def test_room_bounds_are_parameterized_by_config(
         max_rooms=3,
     )
     stage = generate_stage(config, registry, seed=7)
-    assert stage.floor_count == 2
-    for floor in stage.floors:
+    assert stage.floor_count == 3  # 2 normal + 1 boss
+    for floor in stage.floors[:-1]:
         assert len(floor.rooms) == 3
+    assert len(stage.floors[-1].rooms) == 1  # boss floor
 
 
 def test_floor_seed_derivation_is_stable() -> None:
@@ -218,10 +219,10 @@ def test_template_pools_actually_used(
     """Across seeds, multiple templates per kind must appear (variety)."""
     combat_templates: set[str] = set()
     start_templates: set[str] = set()
-    exit_templates: set[str] = set()
+    boss_templates: set[str] = set()
     for seed in range(1, 21):
         stage = generate_stage(stage_config, registry, seed=seed)
-        for floor in stage.floors:
+        for floor_idx, floor in enumerate(stage.floors):
             for room_id, template in floor.templates.items():
                 kind = floor.rooms[room_id].kind
                 if kind == "combat":
@@ -229,10 +230,10 @@ def test_template_pools_actually_used(
                 elif kind == "start":
                     start_templates.add(template)
                 elif kind == "boss":
-                    exit_templates.add(template)
+                    boss_templates.add(template)
     assert len(combat_templates) >= 2
     assert len(start_templates) >= 2
-    assert len(exit_templates) >= 2
+    assert "greybox_boss_arena" in boss_templates
 
 
 # -- Reachability and floor exits --
@@ -241,7 +242,7 @@ def test_template_pools_actually_used(
 def test_every_room_reachable_from_start(
     registry: ContentRegistry, stage_config: StageConfig
 ) -> None:
-    """Spine-only greybox floors must be fully connected."""
+    """All floors must be fully connected."""
     for seed in range(1, 11):
         stage = generate_stage(stage_config, registry, seed=seed)
         for floor in stage.floors:
@@ -268,7 +269,7 @@ def test_every_floor_exit_reachable_and_has_exit_door(
 def test_encounters_populated_from_data(
     registry: ContentRegistry, stage_config: StageConfig
 ) -> None:
-    """Combat rooms get enemies; start/exit rooms get none; ids are real."""
+    """Combat rooms get enemies; start/exit rooms get none; boss room has first_boss."""
     for seed in range(1, 6):
         stage = generate_stage(stage_config, registry, seed=seed)
         for floor in stage.floors:
@@ -276,6 +277,11 @@ def test_encounters_populated_from_data(
                 encounter = floor.encounters[room_id]
                 if room.kind == "combat":
                     assert encounter, f"{room_id} (combat) has no encounter"
+                elif room.kind == "boss":
+                    # Boss floor should have a boss encounter.
+                    for enemy_id, count in encounter:
+                        assert enemy_id == "first_boss"
+                        assert count == 1
                 else:
                     assert encounter == (), f"{room_id} ({room.kind}) populated"
                 for enemy_id, count in encounter:
@@ -296,6 +302,7 @@ def test_encounter_density_matches_template(
         max_rooms=5,
     )
     stage = generate_stage(config, registry, seed=42)
+    # First floor (index 0) is the normal floor.
     floor = stage.floors[0]
     for room_id, template in floor.templates.items():
         total = sum(count for _enemy, count in floor.encounters[room_id])
@@ -311,7 +318,7 @@ def test_encounter_density_matches_template(
 def test_stage_manager_walks_all_floors_to_completion(
     registry: ContentRegistry, stage_config: StageConfig
 ) -> None:
-    """Floor exits advance floor 1 → 2 → 3 → stage complete (once)."""
+    """All floors (incl. boss) advance to stage complete."""
     stage = generate_stage(stage_config, registry, seed=42)
     manager = StageManager(stage)
     transitions: list[tuple[str, float, float]] = []
@@ -319,31 +326,22 @@ def test_stage_manager_walks_all_floors_to_completion(
     manager.on_transition(lambda room, x, y: transitions.append((room.room_id, x, y)))
     manager.on_stage_complete(lambda: completions.append(True))
 
-    start = manager.start()
-    assert manager.floor_index == 0
-    assert start.room_id == stage.floors[0].start_room_id
-    assert not manager.stage_complete
+    _ = manager.start()  # initialize the first floor
+    # 3 normal floors + 1 boss floor = 4 floors total.
+    for i in range(stage.floor_count - 1):
+        manager.transition(_exit_door(stage.floors[i]))
+        assert manager.floor_index == i + 1
+        assert manager.current_room_id == stage.floors[i + 1].start_room_id
+        assert not manager.stage_complete
 
-    # Floor 1 exit → floor 2 start room.
-    manager.transition(_exit_door(stage.floors[0]))
-    assert manager.floor_index == 1
-    assert manager.current_room_id == stage.floors[1].start_room_id
-    assert transitions[-1][0] == stage.floors[1].start_room_id
-
-    # Floor 2 exit → floor 3 start room.
-    manager.transition(_exit_door(stage.floors[1]))
-    assert manager.floor_index == 2
-    assert manager.current_room_id == stage.floors[2].start_room_id
-
-    # Floor 3 exit → stage complete, room unchanged.
-    last_room = manager.current_room_id
-    manager.transition(_exit_door(stage.floors[2]))
+    # Boss floor exit → stage complete.
+    _last = stage.floor_count - 1
+    manager.transition(_exit_door(stage.floors[_last]))
     assert manager.stage_complete
-    assert manager.current_room_id == last_room
     assert completions == [True]
 
-    # Further exit attempts are inert (no repeat callbacks).
-    manager.transition(_exit_door(stage.floors[2]))
+    # Further exit attempts are inert.
+    manager.transition(_exit_door(stage.floors[_last]))
     assert completions == [True]
 
 
@@ -359,7 +357,6 @@ def test_stage_manager_room_transition_within_floor(
 
     floor = stage.floors[0]
     start_room = floor.rooms[floor.start_room_id]
-    # Walk through the start room's (only) door into the next room.
     door = start_room.doors[0]
     manager.transition(door)
     assert manager.floor_index == 0
@@ -418,7 +415,7 @@ def test_template_enemy_spawns_valid(registry: ContentRegistry) -> None:
 def test_template_door_slots_match_kind_convention(
     registry: ContentRegistry,
 ) -> None:
-    """Combat/exit templates need left+right slots; start needs a right slot."""
+    """Start templates need a right slot; others need left+right."""
     for template_id in _all_pool_templates():
         room = Room.from_document(registry.get("world", template_id))
         has_left = any(door.box.x < 50.0 for door in room.doors)
@@ -431,7 +428,7 @@ def test_template_door_slots_match_kind_convention(
 
 
 def test_entry_spawns_are_not_inside_solids(registry: ContentRegistry) -> None:
-    """The conventional entry spawn points (from doors) must be walkable."""
+    """The conventional entry spawn points must be walkable."""
     conventional_spawns = [(80.0, 304.0), (928.0, 304.0)]
     for template_id in _all_pool_templates():
         room = Room.from_document(registry.get("world", template_id))

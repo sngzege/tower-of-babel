@@ -1,0 +1,13 @@
+# Boss primary attack — Phase 1 sweep/charge
+id: boss_primary_attack
+name: Boss Sweep
+tags: [boss, physical]
+windup: 0.6
+active: 0.4
+recovery: 0.3
+cooldown: 2.5
+damage: 20.0
+damage_types: [physical]
+hitbox:
+  spread: 40.0
+  reach: 48.0

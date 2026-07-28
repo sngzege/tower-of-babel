@@ -1,0 +1,13 @@
+# Boss AoE shockwave attack — Phase 2 only
+id: boss_aoe_attack
+name: Boss Shockwave
+tags: [boss, magic, shockwave]
+windup: 0.8
+active: 0.5
+recovery: 0.4
+cooldown: 4.0
+damage: 15.0
+damage_types: [magic, shockwave]
+hitbox:
+  spread: 80.0
+  reach: 80.0

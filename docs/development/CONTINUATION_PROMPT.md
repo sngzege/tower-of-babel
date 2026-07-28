@@ -1,4 +1,4 @@
-# CONTINUATION PROMPT — Phase 5: Enemy Foundation
+# CONTINUATION PROMPT — Phase 8 Complete: Vertical Slice
 
 > **When to use:** the next agent picks up from this exact state. Copy-paste
 > this prompt at the start of the session so the agent knows exactly where we
@@ -11,76 +11,83 @@
 - Project: Tower of Babel (Action RPG + Roguelite)
 - Repo: https://github.com/sngzege/tower-of-babel
 - Branch: `main`
-- Latest commit: (Phase 4 baseline)
+- Latest commit: (Phase 8 vertical slice complete)
 - Living status file: `docs/development/STATUS.md`
-- Last agent completed: Phase 4 — Combat Foundation. Suite at 209 tests + 1 skip. All verification green (ruff, mypy, data validation, headless 300-frame run).
+- Last agent completed: Phase 8 — Vertical Slice.
 
-## What is already implemented (Phase 4)
+## What is already implemented
 
-- **DamagePipeline** (`src/gameplay/combat/damage.py`): invulnerability-aware damage application with overkill tracking, multi-hit stopping at death. Framework-free, testable in isolation.
-- **AttackExecutor** (`src/gameplay/combat/attack.py`): windup → active → recovery → cooldown lifecycle. Data-driven `AttackData` (timing, damage, hitbox geometry, damage types). Connected to `PlayerIntent.primary_attack_pressed`.
-- **InvulnerabilityService** (`src/gameplay/combat/invulnerability.py`): multiple concurrent invulnerability sources (dodge, hitstun, etc.) with independent timers, `has_source`/`remaining` queries, `on_state_changed` callback. Replaces raw `_iframe_remaining` on Player.
-- **StatusEffectManager** (`src/gameplay/combat/status_effects.py`): tag-based effect slots with stacking (cap), duration refresh, tick intervals, modifier aggregation. No content defined (framework only — content requires human approval).
-- **CombatSystem** (`src/gameplay/combat/combat_system.py`): orchestrates hit resolution — AABB overlap detection between hitboxes and vulnerable hurtboxes, publishes events (`entity_damaged`, `entity_killed`, `attack_hit`, `status_applied`, `status_expired`).
-- **Player integration**: `Player` now has `invuln_service`, `status_manager`, `attack_executor`. Dodge uses the service. Attack triggers from intent. `reset()` clears all combat state.
-- **PlaytestScene**: attack hitbox visualisation (orange rect) during active window. CombatSystem wired.
-- **Data pipeline**: `data/schemas/attack.schema.yaml`, `data/combat/attacks/player_default.yaml` (greybox test attack). `combat` category registered in validate_data.py.
-- **46 new tests** (4 modules): damage pipeline (10), invulnerability (14), attack executor (11), status effects (11).
+### Playable at the end of Phase 8
 
-## What the next agent must do now
+`uv run python scripts/run.py` launches a greybox build with full run lifecycle:
 
-Continue with Phase 5 — Enemy Foundation (`docs/development/STATUS.md` and `IMPLEMENTATION_PLAN.md`).
+- **Player**: WASD movement, 360-degree aim (mouse or arrows), attack, dodge with charges + i-frames.
+- **Combat**: attack hitbox, enemy damage, player damage, hitstun, death.
+- **Procedural stage**: 3 seeded floors (start → combat rooms → exit), deterministic per seed.
+- **Room encounters**: combat rooms spawn greybox dummies; clear all → 3-choice reward.
+- **Reward system**: data-driven buffs (damage, HP, speed, etc.), selectable via aim direction.
+- **Boss**: First Boss "Warden of the First Floor" — Phase 1 (slow sweep), Phase 2 (fast sweep + AoE shockwave), phase transition at 50% HP.
+- **Boss arena**: single-room boss floor after normal floors; exit blocked while boss alive.
+- **Run outcomes**: victory (→ green overlay → restart) or death (→ red overlay → restart).
+- **All tuning in data files** (YAML: enemies, rooms, stage config, attacks, rewards).
 
-### Immediate next steps
+### Full verification
 
-1. Read these files at session start:
-   - `RULES.md`
-   - `IMPLEMENTATION_PLAN.md`
-   - `docs/development/STATUS.md`
-   - `ARCHITECTURE.md` (section 5 — Enemies & Bosses)
-   - `DESIGN_DECISIONS.md` (locked decisions L1-L16)
-2. Implement Phase 5 enemy foundation:
-   - Enemy entity (composition root similar to Player)
-   - AI framework (state machine + behavior modules)
-   - Enemy factory building from registry documents
-   - One greybox placeholder enemy that chases, attacks, and dies
-   - Wire enemy into PlaytestScene for manual testing
-3. Use the reusable combat components created in Phase 4:
-   - `CombatSystem` for hit resolution
-   - `DamagePipeline` for damage application
-   - `InvulnerabilityService` for enemy invulnerability if needed
-   - `StatusEffectManager` for enemy status effects
-   - `AttackExecutor` for enemy attacks
-4. Do NOT implement multiple enemy types or full stage families yet.
-5. Add tests only for meaningful behavior (AI state transitions, factory builds, enemy-encounter spawn).
-6. Run the five verification commands before finishing:
-   - `uv run pytest -q`
-   - `uv run ruff check src tests tools scripts`
-   - `uv run mypy src`
-   - `uv run python tools/data_validation/validate_data.py`
-   - `uv run python scripts/run.py --headless --frames 300 --log-level WARNING`
-7. Update these files in the same commit:
-   - `docs/development/STATUS.md`
-   - `IMPLEMENTATION_PLAN.md` (Phase 5 status)
-   - `CHANGELOG.md`
-8. Commit with a clear message and push to `main`.
+```text
+pytest: 285 passed + 1 skip
+ruff: clean
+mypy: clean (122 files)
+data validation: OK
+headless 300-frame run: exit 0
+```
 
-## Important constraints
+## What the next agent should do
 
-- Do NOT change gameplay decisions already locked in DESIGN_DECISIONS.md.
-- Maintain adapter isolation (pygame only in approved adapters).
-- Player must stay as composition root; no monolithic additions.
-- All numbers stay in data files.
-- Enemy behavior framework must scale to future families (RULES.md §22).
-- Only ONE enemy type for now (greybox placeholder, approved by developer).
-- If a change is not part of Phase 5 scope, document it as a proposal only.
+The next phase is **Build System**:
 
-## Deliverable at end of Phase 5
+1. Read RULES.md, STATUS.md, IMPLEMENTATION_PLAN.md, ARCHITECTURE.md.
+2. The Build System phase adds:
+   - In-run build choices (boon/ability selection during traversal)
+   - Passive/ability data architecture
+   - Integration with the existing reward system (reward → persistent build)
+   - Tools/weapons pipeline if applicable
+3. Follow the AI DEVELOPMENT LOOP (end of IMPLEMENTATION_PLAN.md).
+4. Run the five verification commands before finishing.
+5. Update STATUS.md, IMPLEMENTATION_PLAN.md, CHANGELOG.md.
+6. Commit and push.
 
-- Enemy entity with AI (chase, attack, die).
-- Enemy factory that builds from data documents.
-- One beatable placeholder enemy in the greybox arena.
-- Tests pass + lint/type/data clean.
-- Manual playtest shows the enemy chasing and taking damage.
-- Final report (files created/modified, architecture changes, tests, playable features, manual instructions, technical debt, readiness for Phase 6).
-- Documentation updated.
+## Key architecture constraints
+
+- Python + pygame-ce remain the framework.
+- Hybrid component-based architecture stays.
+- Data-driven YAML architecture stays.
+- 360-degree free aim remains.
+- Dodge charges + i-frames remain.
+- Warrior is the first class (Ranger/Mage are future).
+- Framework isolation rules remain.
+- Do NOT add final art, full village progression, full inventory, or lock unresolved design decisions.
+
+## Files created/modified in Phase 8
+
+**Created:**
+- `src/gameplay/bosses/boss_ai.py` — BossAI with 2-phase combat
+- `data/enemies/bosses/first_boss.yaml` — Boss config
+- `data/world/rooms/greybox_boss_arena.yaml` — Boss arena room
+- `data/combat/attacks/boss_primary.yaml` — Phase 1 attack
+- `data/combat/attacks/boss_primary_fast.yaml` — Phase 2 primary attack
+- `data/combat/attacks/boss_aoe.yaml` — AoE shockwave attack
+
+**Modified:**
+- `src/gameplay/playtest_scene.py` — Boss integration, encounter blocking, victory/death overlays
+- `src/gameplay/enemies/enemy_factory.py` — build_boss() function
+- `src/world/stage_generator.py` — Boss floor appending
+- `src/world/floor_assembler.py` — Boss kind → boss arena template
+- `tests/unit/test_stage_generation.py` — Updated for boss floor
+- `tests/integration/gameplay/test_stage_traversal.py` — 3 new boss tests
+
+## Deliverable for the next agent
+
+- A clean, working vertical slice with boss.
+- All verification green.
+- Updated documentation.
+- Ready for Build System phase.

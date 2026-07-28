@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 8 — Vertical Slice COMPLETE (2026-07-28):
+  - Boss AI (`src/gameplay/bosses/boss_ai.py`): `BossAI` class with phase-based AI, `BossPhase` enum (PHASE_1, PHASE_2, DEAD), two AttackExecutors (primary sweep + AoE shockwave), phase transition at 50% HP, strafing/circle/back-up movement behaviors.
+  - Boss data (`data/enemies/bosses/first_boss.yaml`): 300 HP, 48x48 body, phase-specific speed and attack tuning.
+  - Boss arena room (`data/world/rooms/greybox_boss_arena.yaml`): 960x608 open arena with entry/exit doors and two cover pillars.
+  - Boss attack data (`data/combat/attacks/boss_primary.yaml`, `boss_primary_fast.yaml`, `boss_aoe.yaml`): three attack profiles for Phase 1, Phase 2, and AoE shockwave.
+  - Stage generator (`src/world/stage_generator.py`): `_generate_boss_floor()` appends a single-room boss floor after all normal floors. `generate_stage()` now returns `config.floor_count + 1` floors.
+  - PlaytestScene boss integration (`src/gameplay/playtest_scene.py`): boss encounter detection, `_is_boss_active()` door blocking (can't leave while boss alive), BossAI hitbox collection, boss rendering (purple/red phase colors, wide health bar with phase dot indicator, attack hitbox visualization), victory/death game-over overlays, boss defeat → stage complete flow.
+  - EnemyFactory (`src/gameplay/enemies/enemy_factory.py`): `build_boss()` function with lazy import, boss attack data wiring, phase 2 speed boost from document.
+  - Integration tests (`tests/integration/gameplay/test_stage_traversal.py`): 3 new tests — boss spawns in arena, boss blocks exit while alive, boss allows exit after death.
+  - Stage generation tests updated for boss floor: `test_generate_stage_creates_configured_floor_count` now expects `floor_count + 1`, `test_room_bounds_are_parameterized_by_config` exempts boss floor, `test_template_pools_actually_used` checks `greybox_boss_arena`.
+  - Suite: **285 passed + 1 skip** (up from 282).
+
 - Phase 4 — Combat Foundation (2026-07-27):
   - Damage pipeline (`src/gameplay/combat/damage.py`): `DamagePipeline` with invulnerability-aware damage application, overkill tracking, multi-hit stopping at death. Pure logic, framework-free.
   - Attack executor (`src/gameplay/combat/attack.py`): `AttackExecutor` managing the windup → active → recovery → cooldown lifecycle. Data-driven `AttackData` with configurable timing, damage, hitbox geometry. `AttackPhase` enum for state machine integration.
