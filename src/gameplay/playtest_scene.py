@@ -148,6 +148,7 @@ class PlaytestScene(Scene):
         # Phase 10: class loadout.
         self._apply_class_loadout("warrior")
         self._temp_ability_hitbox: tuple[AABB, DamageInstance] | None = None
+        self._pending_buffs: list[dict] = []
 
     @property
     def enemies(self) -> tuple[tuple[Enemy, SimpleAI], ...]:
@@ -327,6 +328,7 @@ class PlaytestScene(Scene):
         self._spawn_room_enemies()
         self._encounter = RoomEncounter()
         self._reward_pending = False
+        self._pending_buffs.clear()
 
         # Re-apply build state on transition.
         self._reapply_weapon()
@@ -397,6 +399,7 @@ class PlaytestScene(Scene):
         self._reward_options = []
         self._reward_pending = False
         self.stage_completed = False
+        self._pending_buffs.clear()
 
     def _handle_reward_selection(self, frame: ActionFrame) -> None:
         """Select reward based on keyboard aim direction (1/2/3)."""
@@ -583,13 +586,23 @@ class PlaytestScene(Scene):
                     value = float(effect.get("value", 0.0))
                     duration = float(effect.get("duration", 3.0))
                     is_pct = bool(effect.get("is_percent", False))
-                    # Apply buff via status effect or direct stat change.
+                    # Apply temporary buff.
                     if stat == "damage" and is_pct:
                         old = self.player.attack_executor.data.damage
                         from dataclasses import replace
-                        self.player.attack_executor = self.player.attack_executor.__class__(
-                            replace(self.player.attack_executor.data, damage=old * (1.0 + value))
+                        buffed_data = replace(
+                            self.player.attack_executor.data,
+                            damage=old * (1.0 + value),
                         )
+                        self.player.attack_executor = self.player.attack_executor.__class__(
+                            buffed_data
+                        )
+                        # Schedule buff removal by storing original data.
+                        self._pending_buffs.append({
+                            "original_damage": old,
+                            "timer": duration,
+                            "slot": "attack_executor",
+                        })
                         _logger.info("Buff: damage +%.0f%% for %.1fs", value * 100, duration)
 
     def update(self, frame: ActionFrame, dt: float) -> None:
@@ -615,6 +628,23 @@ class PlaytestScene(Scene):
 
         # Process ability effects (dash, aoe, knockback, buff).
         self._process_ability_effects(dt)
+
+        # Tick pending buffs.
+        expired = []
+        for i, buf in enumerate(self._pending_buffs):
+            buf["timer"] -= dt
+            if buf["timer"] <= 0:
+                expired.append(i)
+                if buf["slot"] == "attack_executor":
+                    from dataclasses import replace
+                    restored = replace(
+                        self.player.attack_executor.data,
+                        damage=buf["original_damage"],
+                    )
+                    self.player.attack_executor = self.player.attack_executor.__class__(restored)
+                    _logger.info("Buff expired: damage restored to %.1f", buf["original_damage"])
+        for i in reversed(expired):
+            self._pending_buffs.pop(i)
 
         for enemy, ai in self._enemies:
             if not enemy.alive:
