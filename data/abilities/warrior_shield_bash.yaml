@@ -1,4 +1,5 @@
 # Warrior Shield Bash — short stun/knockback, defensive
+# coefficient: 0.8x attack power (lower = utility-focused)
 id: warrior_shield_bash
 name: Shield Bash
 description: Knock back nearby enemies and gain temporary armor.
@@ -6,5 +7,5 @@ tags: [melee, defense]
 cooldown: 6.0
 mana_cost: 0.0
 effects:
-  - {type: knockback, range: 60.0, damage: 15.0, damage_types: [physical], tags: [melee]}
+  - {type: knockback, range: 60.0, coefficient: 0.8, damage_types: [physical], tags: [melee]}
   - {type: buff, stat: defense, value: 0.2, duration: 3.0}

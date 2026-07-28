@@ -32,6 +32,7 @@ from gameplay.combat.combat_system import (
     CombatSystem,
 )
 from gameplay.combat.damage import DamageInstance
+from gameplay.combat.damage_formula import DamageFormula
 from gameplay.combat.encounter import RoomEncounter
 from gameplay.enemies.enemy import Enemy
 from gameplay.enemies.enemy_ai import SimpleAI
@@ -652,12 +653,26 @@ class PlaytestScene(Scene):
 
         px, py = self.player.body.x, self.player.body.y
 
+        # Compute attack power from current weapon-scaled base damage.
+        attack_power = self.player.attack_executor.data.damage
+
         for effect in effects:
             etype = str(effect.get("type", ""))
+            # Check for damage coefficient (new formula) or raw damage (legacy).
+            coefficient = float(effect.get("coefficient", 0.0))
+            raw_dmg = float(effect.get("damage", 0))
+            if coefficient > 0.0:
+                ability_tags = frozenset(effect.get("tags", []))
+                dmg = DamageFormula.ability_damage(
+                    coefficient, attack_power, ability_tags, self._run.build,
+                )
+            else:
+                dmg = raw_dmg
+            dmg_types = frozenset(effect.get("damage_types", ["physical"]))
             if etype == "dash":
                 distance = float(effect.get("distance", 120.0))
-                dmg = float(effect.get("damage", 0))
-                dmg_types = frozenset(effect.get("damage_types", ["physical"]))
+                if dmg <= 0 and coefficient <= 0:  # legacy: read raw damage
+                    pass
                 self.player.body.x += fx * distance
                 self.player.body.y += fy * distance
                 self.camera.center_on(self.player.body.x, self.player.body.y)
@@ -670,7 +685,6 @@ class PlaytestScene(Scene):
                     )
             elif etype == "aoe":
                 range_val = float(effect.get("range", 60.0))
-                dmg = float(effect.get("damage", 0))
                 if dmg > 0:
                     self._temp_ability_hitbox = (
                         AABB(px - range_val, py - range_val, range_val * 2, range_val * 2),
@@ -678,7 +692,6 @@ class PlaytestScene(Scene):
                     )
             elif etype == "knockback":
                 range_val = float(effect.get("range", 60.0))
-                dmg = float(effect.get("damage", 0))
                 if dmg > 0:
                     # Radial outward knockback from player position.
                     self._temp_ability_hitbox = (
@@ -800,10 +813,26 @@ class PlaytestScene(Scene):
                 self.player.body.x, self.player.body.y, facing_x=ax, facing_y=ay,
             )
             if hb is not None:
+                # Compute damage through the formula: weapon-modified attack_power
+                # (which already includes weapon.damage_mult) as the base, then
+                # apply BuildState global + tag multipliers via total_damage_for.
+                base_power = self.player.attack_executor.data.damage
+                # Get weapon tags for tag-specific multipliers.
+                attack_tags: frozenset[str] = frozenset()
+                if self._registry is not None:
+                    try:
+                        wid = self._run.build.weapon_id
+                        wdoc = self._registry.get("weapons", wid)
+                        attack_tags = frozenset(wdoc.get("tags", []))
+                    except Exception:
+                        pass
+                final_dmg = DamageFormula.basic_attack(
+                    base_power, attack_tags, self._run.build,
+                )
                 player_hitboxes.append((
                     "player", hb,
                     DamageInstance(
-                        value=self.player.attack_executor.data.damage,
+                        value=final_dmg,
                         types=self.player.attack_executor.data.damage_types,
                         source_layer=self.player.attack_executor.data.layer,
                     ),
