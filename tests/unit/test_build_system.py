@@ -91,6 +91,23 @@ def test_passive_loads_from_data(registry: ContentRegistry) -> None:
         assert len(data.modifiers) >= 1
 
 
+def test_passive_has_description(registry: ContentRegistry) -> None:
+    """Passives must load with a non-empty description."""
+    for pid in ("hardy", "fury"):
+        doc = registry.get("passives", pid)
+        data = PassiveData.from_document(doc)
+        assert data.description, f"Passive '{pid}' has no description"
+        assert len(data.description) > 5
+
+
+def test_boon_has_description(registry: ContentRegistry) -> None:
+    """Boons must load with a non-empty description."""
+    for doc in registry.all("boons"):
+        data = BoonData.from_document(doc)
+        assert data.description, f"Boon '{data.id}' has no description"
+        assert len(data.description) > 5
+
+
 def test_passive_applies_modifier_to_build() -> None:
     build = BuildState()
     doc = {"id": "test_hardy", "name": "Test Hardy", "modifiers": [

@@ -1104,8 +1104,23 @@ class PlaytestScene(Scene):
 
         bi_y += 18
         if self._run.build.passive_ids:
-            passives_str = ", ".join(p.replace("_", " ").title() for p in self._run.build.passive_ids)  # noqa: E501
-            renderer.draw_text(f"Passives: {passives_str}", hp_bar_x, bi_y, (180, 220, 200), 12)
+            renderer.draw_text("Passives:", hp_bar_x, bi_y, (180, 220, 200), 12)
+            bi_y += 16
+            for pid in self._run.build.passive_ids:
+                pname = pid.replace("_", " ").title()
+                # Look up description from registry.
+                pdesc = ""
+                if self._registry is not None:
+                    try:
+                        doc = self._registry.get("passives", pid)
+                        pdesc = str(doc.get("description", ""))
+                    except Exception:
+                        pass
+                renderer.draw_text(f"  {pname}", hp_bar_x, bi_y, (200, 220, 210), 12)
+                bi_y += 14
+                if pdesc:
+                    renderer.draw_text(f"  {pdesc}", hp_bar_x, bi_y, (160, 190, 180), 11)
+                    bi_y += 14
 
         bi_y += 18
         # Fury status.
@@ -1187,17 +1202,39 @@ class PlaytestScene(Scene):
         # Reward overlay.
         if self._reward_pending:
             w, h = renderer.size
-            options = self._pending_weapon_choice or [b.name for b in self._reward_options]
-            for i, opt in enumerate(options):
+            is_weapon_choice = bool(self._pending_weapon_choice)
+            if is_weapon_choice:
+                options_raw = self._pending_weapon_choice
+            else:
+                options_raw = self._reward_options
+            for i, opt in enumerate(options_raw):
                 rx = 60 + i * 180
                 ry = h // 3
                 rw, rh = 160, 80
                 # Reward card background.
                 renderer.draw_rect((rx, ry, rw, rh), _REWARD_COLORS[i % 3])
                 renderer.draw_rect((rx + 3, ry + 3, rw - 6, rh - 6), (20, 20, 30))
-                # Label.
-                label = str(opt).replace("warrior_", "").replace("_", " ").title()
+                # Name and description.
+                if is_weapon_choice:
+                    opt_str = str(opt)
+                    label = opt_str.replace("warrior_", "").replace("_", " ").title()
+                    desc = ""
+                    if self._registry is not None:
+                        try:
+                            doc = self._registry.get("weapons", opt_str)
+                            desc = str(doc.get("description", ""))
+                        except Exception:
+                            pass
+                else:
+                    boon: BoonData = opt  # type: ignore
+                    label = boon.name
+                    desc = boon.description
                 renderer.draw_text(label, rx + 8, ry + 8, (220, 220, 230), 14)
+                # Description (truncate if too long).
+                if desc:
+                    if len(desc) > 28:
+                        desc = desc[:26] + ".."
+                    renderer.draw_text(desc, rx + 8, ry + 26, (160, 160, 180), 11)
                 # Choice hint.
                 hints = ["← Left", "↓ Down", "Right →"]
                 renderer.draw_text(hints[i], rx + 8, ry + 50, (160, 160, 180), 12)
