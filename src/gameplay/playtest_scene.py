@@ -157,6 +157,10 @@ class PlaytestScene(Scene):
         self._temp_knockback_force: float = 0.0
         # Track reward state to prevent re-offering on the same room.
         self._reward_offered_in_room: bool = False
+        # Mouse hover state for reward cards.
+        self._hovered_reward_index: int = -1
+        # Cached screen height for reward card hit-testing.
+        self._screen_h: int = 800
 
         # If enemies were provided directly, activate the encounter.
         if self._enemies:
@@ -446,34 +450,81 @@ class PlaytestScene(Scene):
         self.stage_completed = False
         self._pending_buffs.clear()
 
+    def _reward_card_rects(self, h: int, count: int) -> list[tuple[int, int, int, int]]:
+        """Compute screen rects for reward cards for hit-testing."""
+        rects: list[tuple[int, int, int, int]] = []
+        for i in range(count):
+            rx = 60 + i * 180
+            ry = h // 3
+            rects.append((rx, ry, 160, 80))
+        return rects
+
+    def _get_reward_count(self) -> int:
+        if self._pending_weapon_choice:
+            return len(self._pending_weapon_choice)
+        return len(self._reward_options)
+
     def _handle_reward_selection(self, frame: ActionFrame) -> None:
-        """Select reward based on keyboard aim direction (1/2/3)."""
+        """Select reward based on keyboard aim direction or mouse click.
+
+        Mouse takes priority: if the pointer is over a card and
+        PRIMARY_ATTACK is pressed, that card is selected immediately.
+        Otherwise keyboard aim direction is used.
+        """
+        # Determine card count and screen positions for mouse hit-test.
+        count = self._get_reward_count()
+        if count == 0:
+            self._reward_pending = False
+            return
+
+        # Mouse hover detection (works every frame).
+        self._hovered_reward_index = -1
+        if frame.pointer is not None:
+            px, py = frame.pointer
+            rects = self._reward_card_rects(self._screen_h, count)
+            # Use actual screen height from frame context if available.
+            for i, rect in enumerate(rects):
+                rx, ry, rw, rh = rect
+                if rx <= px <= rx + rw and ry <= py <= ry + rh:
+                    self._hovered_reward_index = i
+                    break
+
+        # Mouse click selection (check PRIMARY_ATTACK while hovering).
+        if self._hovered_reward_index >= 0 and Action.PRIMARY_ATTACK in frame.pressed:
+            idx = self._hovered_reward_index
+        else:
+            idx = -1
+
+        # Keyboard selection (only if no mouse click happened).
+        if idx < 0:
+            if frame.aim_x < -0.5:
+                idx = 0
+            elif frame.aim_y > 0.5 or frame.aim_y < -0.5:
+                idx = 1
+            elif frame.aim_x > 0.5:
+                idx = 2
+
         # Weapon choice.
         if self._pending_weapon_choice:
-            idx = self._weapon_choice_index(frame)
             if idx >= 0 and idx < len(self._pending_weapon_choice):
                 weapon_id = self._pending_weapon_choice[idx]
                 self._apply_weapon_to_player(weapon_id)
                 self._pending_weapon_choice = []
                 self._reward_pending = False
+                self._hovered_reward_index = -1
             return
 
         if not self._reward_options:
             self._reward_pending = False
             return
-        idx = -1
-        if frame.aim_x < -0.5:
-            idx = 0
-        elif frame.aim_y > 0.5 or frame.aim_y < -0.5:
-            idx = 1
-        elif frame.aim_x > 0.5:
-            idx = 2
+
         if idx >= 0 and idx < len(self._reward_options):
             boon = self._reward_options[idx]
             apply_boon_to_build(boon, self._run.build)
             self._run.state.rewards_collected.append(boon.id)
             self._reward_options = []
             self._reward_pending = False
+            self._hovered_reward_index = -1
             # Re-apply all build systems.
             self._reapply_weapon()
             self._apply_abilities_to_player()
@@ -953,6 +1004,7 @@ class PlaytestScene(Scene):
         return (0.0, 0.0)
 
     def render(self, renderer: Renderer) -> None:
+        self._screen_h = renderer.size[1]
         renderer.draw_rect(self.camera.screen_rect(self.room.bounds), _FLOOR_COLOR)
         for solid in self.room.solids:
             renderer.draw_rect(self.camera.screen_rect(solid), _WALL_COLOR)
@@ -1204,7 +1256,7 @@ class PlaytestScene(Scene):
             w, h = renderer.size
             is_weapon_choice = bool(self._pending_weapon_choice)
             if is_weapon_choice:
-                options_raw = self._pending_weapon_choice
+                options_raw: list = self._pending_weapon_choice
             else:
                 options_raw = self._reward_options
             for i, opt in enumerate(options_raw):
@@ -1213,7 +1265,13 @@ class PlaytestScene(Scene):
                 rw, rh = 160, 80
                 # Reward card background.
                 renderer.draw_rect((rx, ry, rw, rh), _REWARD_COLORS[i % 3])
-                renderer.draw_rect((rx + 3, ry + 3, rw - 6, rh - 6), (20, 20, 30))
+                # Hover highlight: brighter inner border.
+                if i == self._hovered_reward_index:
+                    renderer.draw_rect((rx + 2, ry + 2, rw - 4, rh - 4), (255, 255, 200))
+                    inner_color = (30, 30, 42)
+                else:
+                    inner_color = (20, 20, 30)
+                renderer.draw_rect((rx + 3, ry + 3, rw - 6, rh - 6), inner_color)
                 # Name and description.
                 if is_weapon_choice:
                     opt_str = str(opt)
