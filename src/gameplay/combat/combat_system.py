@@ -136,6 +136,10 @@ class CombatSystem:
                 # Apply damage.
                 result = self.pipeline.apply(damage, entity.damage_target)
 
+                # Prevent multi-hit from the same attack across frames.
+                if result.dealt > 0 and entity.invuln_service is not None:
+                    entity.invuln_service.add("hit_invuln", 0.05)
+
                 hits.append(
                     ResolvedHit(
                         source_id=source_id,

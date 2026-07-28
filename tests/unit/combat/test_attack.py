@@ -151,3 +151,43 @@ def test_full_attack_cycle_returns_to_idle() -> None:
             break
     assert exe.state.phase is AttackPhase.IDLE
     assert exe.can_trigger()
+
+
+def test_hitbox_360_degrees_various_angles() -> None:
+    """Verify hitbox_for works correctly at multiple angles."""
+    exe = AttackExecutor(
+        _attack_data(windup=0.0, active=1.0, hitbox_spread=16.0, hitbox_reach=36.0)
+    )
+    exe.trigger()
+    exe.update(0.01)  # advance to active
+
+    # Right (0 degrees).
+    hb = exe.hitbox_for(100, 100, facing_x=1.0, facing_y=0.0)
+    assert hb is not None
+    assert hb.x == pytest.approx(100.0 + 18.0 - 18.0, abs=1.0)  # center = 118, hw=18
+    assert hb.width == 36.0  # reach along x
+
+    # Down (90 degrees).
+    hb = exe.hitbox_for(100, 100, facing_x=0.0, facing_y=1.0)
+    assert hb is not None
+    assert hb.height == 36.0  # reach along y
+
+    # Up (270 degrees).
+    hb = exe.hitbox_for(100, 100, facing_x=0.0, facing_y=-1.0)
+    assert hb is not None
+    assert hb.height == 36.0
+
+    # Diagonal (45 degrees) — AABB is larger than actual rotated rect,
+    # but must cover the intended area.
+    hb = exe.hitbox_for(0, 0, facing_x=1.0, facing_y=1.0)
+    assert hb is not None
+    assert hb.width > 26.0  # AABB wider than spread at diagonal
+    assert hb.height > 26.0
+    # The hitbox center should be along the diagonal.
+    cx, cy = hb.center
+    assert cx == pytest.approx(18.0 * 0.707, abs=1.0)  # hu*dx at 45°
+    assert cy == pytest.approx(18.0 * 0.707, abs=1.0)
+
+    # Invalid direction returns None.
+    hb = exe.hitbox_for(100, 100, facing_x=0.0, facing_y=0.0)
+    assert hb is None

@@ -364,3 +364,58 @@ class TestCombatResolution:
         )
 
         assert len(hits) == 0
+
+
+class TestMultiHit:
+    """Tests for multi-hit prevention."""
+
+    def test_multi_hit_prevented_within_same_attack(
+        self, dummy_enemy: Enemy
+    ) -> None:
+        """A single attack's active window should only damage an enemy once."""
+        combat = CombatSystem()
+        enemy = dummy_enemy
+        initial_hp = enemy.health
+
+        # Create a hitbox that overlaps the enemy.
+        hitbox = enemy.hurtbox.box_at(200.0, 200.0)
+
+        damage = DamageInstance(value=25.0, types=frozenset({"physical"}))
+
+        enemy_entity = CombatEntity(
+            id="test_dummy",
+            body_x=200.0,
+            body_y=200.0,
+            hurtbox_aabb=enemy.hurtbox.box_at(200.0, 200.0),
+            vulnerable=True,
+            damage_target=enemy,
+            invuln_service=enemy.invuln_service,
+        )
+
+        # First hit lands and should deal damage.
+        hits = combat.resolve_hits(
+            hitboxes=[("player", hitbox, damage)],
+            entities=[enemy_entity],
+        )
+        assert len(hits) == 1
+        assert hits[0].result.dealt == 25.0
+        assert enemy.health < initial_hp
+
+        # Immediately resolve again (next frame during same attack).
+        # hit_invuln should prevent second damage.
+        hits = combat.resolve_hits(
+            hitboxes=[("player", hitbox, damage)],
+            entities=[enemy_entity],
+        )
+        assert len(hits) == 1
+        assert hits[0].result.invulnerable
+        assert hits[0].result.dealt == 0.0
+
+        # After hit_invuln expires (0.05s), a new attack can damage again.
+        enemy.invuln_service.update(0.06)
+        hits = combat.resolve_hits(
+            hitboxes=[("player", hitbox, damage)],
+            entities=[enemy_entity],
+        )
+        assert len(hits) == 1
+        assert hits[0].result.dealt == 25.0
