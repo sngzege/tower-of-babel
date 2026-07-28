@@ -104,7 +104,7 @@ def test_scene_renders_floor_walls_player_and_marker() -> None:
     scene.render(renderer)
     # 1 floor + N solids + 1 player + 1 marker + ability HUD (4 slots × 2 rects each).
     expected = 1 + len(scene.room.solids) + 2 + 8
-    assert len(renderer.rects) == expected
+    assert len(renderer.rects) == expected + 2  # +2 for HP bar background + fill
 
 
 def test_controller_translates_actions_into_intents() -> None:

@@ -25,6 +25,13 @@ class AbilitySlot(Enum):
     AURA = "aura"
 
 
+class AbilityType(Enum):
+    """Type of ability activation model."""
+    INSTANT = "instant"      # Fire once, cooldown (Q/E/R)
+    TOGGLE = "toggle"        # Toggle on/off, no cooldown (T/aura)
+    SUSTAINED = "sustained"  # Active while held/channeled (future)
+
+
 @dataclass(frozen=True)
 class AbilityData(BuildComponent):
     """Data-driven ability definition.
@@ -37,6 +44,7 @@ class AbilityData(BuildComponent):
     cooldown: float = 3.0
     mana_cost: float = 0.0
     effects: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    ability_type: str = "instant"  # "instant" | "toggle" | "sustained"
 
     @classmethod
     def from_document(cls, document: dict[str, Any]) -> AbilityData:
@@ -48,6 +56,7 @@ class AbilityData(BuildComponent):
             cooldown=float(document.get("cooldown", 3.0)),
             mana_cost=float(document.get("mana_cost", 0.0)),
             effects=tuple(document.get("effects", [])),
+            ability_type=str(document.get("ability_type", "instant")),
         )
 
 
@@ -57,6 +66,7 @@ class AbilityState:
     elapsed: float = 0.0
     ready: bool = True
     just_activated: bool = False  # True for one frame after activation
+    toggle_on: bool = False  # For toggle-type abilities (aura)
 
 
 class AbilityExecutor:
@@ -84,10 +94,20 @@ class AbilityExecutor:
         return min(self.state.elapsed / self.data.cooldown, 1.0)
 
     def can_activate(self) -> bool:
+        """For instant abilities: ready = cooldown complete.
+        For toggle abilities: always pressable (toggle on/off)."""
+        if self.data.ability_type == "toggle":
+            return True  # always toggleable
         return self.state.ready
 
     def activate(self) -> bool:
         """Activate the ability if ready. Returns True on success."""
+        if self.data.ability_type == "toggle":
+            # Toggle: flip on/off, no cooldown.
+            self.state.toggle_on = not self.state.toggle_on
+            self.state.just_activated = True
+            return True
+        # Instant: standard cooldown.
         if not self.state.ready:
             return False
         self.state = AbilityState(elapsed=0.0, ready=False, just_activated=True)

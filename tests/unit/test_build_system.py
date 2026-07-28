@@ -66,8 +66,9 @@ def test_ability_loads_from_data(registry: ContentRegistry) -> None:
         doc = registry.get("abilities", aid)
         data = AbilityData.from_document(doc)
         assert data.id == aid
-        assert data.cooldown > 0
+        assert data.cooldown >= 0
         assert len(data.effects) >= 1
+        assert data.ability_type in ("instant", "toggle")
 
 
 def test_ability_cannot_activate_twice() -> None:

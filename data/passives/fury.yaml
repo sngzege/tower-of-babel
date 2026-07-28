@@ -1,4 +1,4 @@
-# Fury — damage scales with low health
+# Fury — damage scales with low health (below 50%)
 id: fury
 name: Fury
 description: +15% damage when below 50% HP.
@@ -6,4 +6,4 @@ tags: [offense]
 stackable: false
 max_stacks: 1
 modifiers:
-  - {stat: damage, value: 0.15, is_percent: true}
+  - {stat: damage, value: 0.15, is_percent: true, condition: hp_below_50}

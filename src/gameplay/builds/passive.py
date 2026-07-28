@@ -35,6 +35,7 @@ class PassiveData(BuildComponent):
                 is_percent=bool(mod.get("is_percent", False)),
                 source=str(document.get("id", "unknown")),
                 tags=frozenset(mod.get("tags", [])),
+                condition=str(mod.get("condition", "")),
             ))
         return cls(
             id=str(document.get("id", "unknown")),

@@ -23,6 +23,7 @@ from core.content_registry import ContentRegistry
 from core.enums import SceneID
 from engine.scene import Scene
 from gameplay.bosses.boss_ai import BossAI, BossPhase
+from gameplay.builds.ability import AbilityData, AbilityExecutor
 from gameplay.builds.boon import BoonData, apply_boon_to_build
 from gameplay.builds.weapon import WeaponData
 from gameplay.combat.attack import AttackData
@@ -149,6 +150,10 @@ class PlaytestScene(Scene):
         self._apply_class_loadout("warrior")
         self._temp_ability_hitbox: tuple[AABB, DamageInstance] | None = None
         self._pending_buffs: list[dict] = []
+        self._toggle_states: dict[str, bool] = {
+            "skill_q": False, "skill_e": False,
+            "skill_r": False, "aura": False,
+        }
 
     @property
     def enemies(self) -> tuple[tuple[Enemy, SimpleAI], ...]:
@@ -280,10 +285,21 @@ class PlaytestScene(Scene):
                 from gameplay.builds.passive import PassiveData
                 passive = PassiveData.from_document(doc)
                 for mod in passive.modifiers:
-                    tag_str = next(iter(mod.tags)) if mod.tags else ""
-                    build.apply_passive_modifier(
-                        mod.stat, mod.value, mod.is_percent, tag_str
-                    )
+                    # Check for conditional passives.
+                    condition = getattr(mod, 'condition', '')
+                    if condition:
+                        build.register_conditional({
+                            "condition": condition,
+                            "value": mod.value,
+                            "stat": mod.stat,
+                            "_active": False,
+                            "pid": pid,
+                        })
+                    else:
+                        tag_str = next(iter(mod.tags)) if mod.tags else ""
+                        build.apply_passive_modifier(
+                            mod.stat, mod.value, mod.is_percent, tag_str
+                        )
             except Exception as exc:
                 _logger.warning("Failed to apply passive '%s': %s", pid, exc)
 
@@ -329,6 +345,10 @@ class PlaytestScene(Scene):
         self._encounter = RoomEncounter()
         self._reward_pending = False
         self._pending_buffs.clear()
+        self._toggle_states.update({"skill_q": False, "skill_e": False, "skill_r": False, "aura": False})
+        # Reset toggle executors.
+        for executor in self.player.ability_executors.values():
+            executor.state.toggle_on = False
 
         # Re-apply build state on transition.
         self._reapply_weapon()
@@ -382,9 +402,13 @@ class PlaytestScene(Scene):
     def _restart_run(self) -> None:
         self.player.reset()
         self._run.reset()
-        self._run.start()
+        self._pending_buffs.clear()
         self._game_over_message = ""
         self._pending_weapon_choice = []
+        self._toggle_states.update({"skill_q": False, "skill_e": False, "skill_r": False, "aura": False})
+        for executor in self.player.ability_executors.values():
+            executor.state.toggle_on = False
+        self._temp_ability_hitbox = None
         if self._stage_manager is not None:
             self._stage_manager.start()
             start = self._stage_manager.current_room
@@ -509,101 +533,110 @@ class PlaytestScene(Scene):
     # -- Main update --
 
     def _process_ability_effects(self, dt: float) -> None:
-        """Execute effects for any abilities activated this frame."""
+        """Execute effects for any abilities activated this frame.
+
+        Handles:
+          - instant: fire once, cooldown (Q/E/R)
+          - toggle: apply/remove sustained effect (T/aura)
+        """
         if self._registry is None:
             return
         for slot_key, executor in self.player.ability_executors.items():
-            if not executor.state.just_activated:
-                continue
-            executor.state.just_activated = False  # consumed
-            data = executor.data
-            effects = data.effects
-            if not effects:
-                continue
+            is_toggle = executor.data.ability_type == "toggle"
 
-            fx, fy = self.player.aim_vector
-            length = (fx * fx + fy * fy) ** 0.5
-            if length > 0.001:
-                fx, fy = fx / length, fy / length
+            if is_toggle:
+                # Check for toggle state change.
+                current_toggle = executor.state.toggle_on
+                previous = self._toggle_states.get(slot_key, False)
+                if current_toggle == previous:
+                    continue  # no change this frame
+                self._toggle_states[slot_key] = current_toggle
+
+                if current_toggle:
+                    # Toggle ON → apply sustained effect.
+                    self._apply_toggle_effect(slot_key, executor, on=True)
+                else:
+                    # Toggle OFF → remove sustained effect.
+                    self._apply_toggle_effect(slot_key, executor, on=False)
             else:
-                fx, fy = 0.0, -1.0
+                # Instant: fire once.
+                if not executor.state.just_activated:
+                    continue
+                executor.state.just_activated = False
+                self._fire_instant_ability(executor)
 
-            px, py = self.player.body.x, self.player.body.y
-            aim_vec = (fx, fy)
+    def _fire_instant_ability(self, executor: AbilityExecutor) -> None:
+        """Execute one-shot ability effects (dash, aoe, knockback)."""
+        effects = executor.data.effects
+        if not effects:
+            return
 
-            for effect in effects:
-                etype = str(effect.get("type", ""))
+        fx, fy = self.player.aim_vector
+        length = (fx * fx + fy * fy) ** 0.5
+        if length > 0.001:
+            fx, fy = fx / length, fy / length
+        else:
+            fx, fy = 0.0, -1.0
 
-                if etype == "dash":
-                    distance = float(effect.get("distance", 120.0))
-                    dmg = float(effect.get("damage", 0))
-                    dmg_types = frozenset(effect.get("damage_types", ["physical"]))
-                    # Apply dash movement.
-                    self.player.body.x += fx * distance
-                    self.player.body.y += fy * distance
-                    self.camera.center_on(self.player.body.x, self.player.body.y)
-                    # Create dash hitbox along the path.
-                    if dmg > 0:
-                        dash_hb = AABB(
-                            px + fx * distance * 0.3 - 20.0,
-                            py + fy * distance * 0.3 - 12.0,
-                            40.0, 24.0,
-                        )
-                        self._temp_ability_hitbox = (
-                            dash_hb,
-                            DamageInstance(value=dmg, types=dmg_types,
-                                           source_layer="player_hitbox"),
-                        )
+        px, py = self.player.body.x, self.player.body.y
 
-                elif etype == "aoe":
-                    range_val = float(effect.get("range", 60.0))
-                    dmg = float(effect.get("damage", 0))
-                    dmg_types = frozenset(effect.get("damage_types", ["physical"]))
-                    if dmg > 0:
-                        aoe_hb = AABB(px - range_val, py - range_val,
-                                       range_val * 2, range_val * 2)
-                        self._temp_ability_hitbox = (
-                            aoe_hb,
-                            DamageInstance(value=dmg, types=dmg_types,
-                                           source_layer="player_hitbox"),
-                        )
+        for effect in effects:
+            etype = str(effect.get("type", ""))
+            if etype == "dash":
+                distance = float(effect.get("distance", 120.0))
+                dmg = float(effect.get("damage", 0))
+                dmg_types = frozenset(effect.get("damage_types", ["physical"]))
+                self.player.body.x += fx * distance
+                self.player.body.y += fy * distance
+                self.camera.center_on(self.player.body.x, self.player.body.y)
+                if dmg > 0:
+                    self._temp_ability_hitbox = (
+                        AABB(px + fx * distance * 0.3 - 20.0,
+                             py + fy * distance * 0.3 - 12.0, 40.0, 24.0),
+                        DamageInstance(value=dmg, types=dmg_types, source_layer="player_hitbox"),
+                    )
+            elif etype == "aoe":
+                range_val = float(effect.get("range", 60.0))
+                dmg = float(effect.get("damage", 0))
+                if dmg > 0:
+                    self._temp_ability_hitbox = (
+                        AABB(px - range_val, py - range_val, range_val * 2, range_val * 2),
+                        DamageInstance(value=dmg, types=frozenset(effect.get("damage_types", ["physical"])), source_layer="player_hitbox"),
+                    )
+            elif etype == "knockback":
+                range_val = float(effect.get("range", 60.0))
+                dmg = float(effect.get("damage", 0))
+                if dmg > 0:
+                    self._temp_ability_hitbox = (
+                        AABB(px - range_val, py - range_val, range_val * 2, range_val * 2),
+                        DamageInstance(value=dmg, types=frozenset(effect.get("damage_types", ["physical"])), source_layer="player_hitbox"),
+                    )
 
-                elif etype == "knockback":
-                    range_val = float(effect.get("range", 60.0))
-                    dmg = float(effect.get("damage", 0))
-                    dmg_types = frozenset(effect.get("damage_types", ["physical"]))
-                    if dmg > 0:
-                        kb_hb = AABB(px - range_val, py - range_val,
-                                      range_val * 2, range_val * 2)
-                        self._temp_ability_hitbox = (
-                            kb_hb,
-                            DamageInstance(value=dmg, types=dmg_types,
-                                           source_layer="player_hitbox"),
-                        )
+    def _apply_toggle_effect(self, slot_key: str, executor: AbilityExecutor, on: bool) -> None:
+        """Apply or remove a toggle/sustained effect."""
+        effects = executor.data.effects
+        for effect in effects:
+            etype = str(effect.get("type", ""))
+            stat = str(effect.get("stat", "damage"))
+            value = float(effect.get("value", 0.0))
+            is_pct = bool(effect.get("is_percent", False))
 
-                elif etype == "buff":
-                    stat = str(effect.get("stat", "damage"))
-                    value = float(effect.get("value", 0.0))
-                    duration = float(effect.get("duration", 3.0))
-                    is_pct = bool(effect.get("is_percent", False))
-                    # Apply temporary buff.
-                    if stat == "damage" and is_pct:
-                        old = self.player.attack_executor.data.damage
-                        from dataclasses import replace
-                        buffed_data = replace(
-                            self.player.attack_executor.data,
-                            damage=old * (1.0 + value),
-                        )
-                        self.player.attack_executor = self.player.attack_executor.__class__(
-                            buffed_data
-                        )
-                        # Schedule buff removal by storing original data.
-                        self._pending_buffs.append({
-                            "original_damage": old,
-                            "timer": duration,
-                            "slot": "attack_executor",
-                        })
-                        _logger.info("Buff: damage +%.0f%% for %.1fs", value * 100, duration)
+            if on and etype == "buff":
+                # Apply buff.
+                if stat == "damage" and is_pct:
+                    old = self.player.attack_executor.data.damage
+                    from dataclasses import replace
+                    buffed = replace(self.player.attack_executor.data, damage=old * (1.0 + value))
+                    self.player.attack_executor = self.player.attack_executor.__class__(buffed)
+                    _logger.info("Toggle ON: damage buff active (+%.0f%%)", value * 100)
+            elif not on and etype == "buff":
+                # Remove buff — restore original.
+                if stat == "damage" and is_pct:
+                    original = self.player.attack_executor.data.damage / (1.0 + value)
+                    from dataclasses import replace
+                    restored = replace(self.player.attack_executor.data, damage=original)
+                    self.player.attack_executor = self.player.attack_executor.__class__(restored)
+                    _logger.info("Toggle OFF: damage buff removed")
 
     def update(self, frame: ActionFrame, dt: float) -> None:
         if self._run.ended:
@@ -628,6 +661,9 @@ class PlaytestScene(Scene):
 
         # Process ability effects (dash, aoe, knockback, buff).
         self._process_ability_effects(dt)
+
+        # Update conditional modifiers (Fury below 50% HP).
+        self._run.build.update_conditionals(self.player.health, self.player.stats.max_health)
 
         # Tick pending buffs.
         expired = []
@@ -828,8 +864,17 @@ class PlaytestScene(Scene):
         )
         renderer.draw_rect(self.camera.screen_rect(marker), _FACING_COLOR)
 
-        # Ability cooldown HUD (top-right).
+        # Player HP bar (top-left).
         w, h = renderer.size
+        hp_ratio = self.player.health / self.player.stats.max_health
+        hp_bg_w, hp_bg_h = 150, 20
+        renderer.draw_rect((10, 10, hp_bg_w, hp_bg_h), (50, 20, 20))
+        if hp_ratio > 0:
+            hp_fg_w = int((hp_bg_w - 4) * hp_ratio)
+            hp_color = (80, 200, 80) if hp_ratio > 0.3 else (200, 80, 80)
+            renderer.draw_rect((12, 12, hp_fg_w, hp_bg_h - 4), hp_color)
+
+        # Ability cooldown HUD (top-right).
         slot_labels = ["Q", "E", "R", "T"]
         slot_keys = ["skill_q", "skill_e", "skill_r", "aura"]
         for i, (label, slot_key) in enumerate(zip(slot_labels, slot_keys)):
@@ -842,12 +887,19 @@ class PlaytestScene(Scene):
             # Background.
             renderer.draw_rect((sx, sy, sw_int, sh_int), (30, 30, 30))
             # Cooldown fill.
-            frac = exec_.ready_fraction
-            if frac < 1.0:
-                fill_w = int((sw_int - 4) * frac)
-                renderer.draw_rect((sx + 2, sy + 2, fill_w, sh_int - 4), (60, 60, 180))
+            if exec_.data.ability_type == "toggle":
+                # Toggle ability: show ON/OFF instead of cooldown.
+                if exec_.state.toggle_on:
+                    renderer.draw_rect((sx + 2, sy + 2, sw_int - 4, sh_int - 4), (200, 180, 50))
+                else:
+                    renderer.draw_rect((sx + 2, sy + 2, sw_int - 4, sh_int - 4), (60, 60, 60))
             else:
-                renderer.draw_rect((sx + 2, sy + 2, sw_int - 4, sh_int - 4), (60, 150, 60))
+                frac = exec_.ready_fraction
+                if frac < 1.0:
+                    fill_w = int((sw_int - 4) * frac)
+                    renderer.draw_rect((sx + 2, sy + 2, fill_w, sh_int - 4), (60, 60, 180))
+                else:
+                    renderer.draw_rect((sx + 2, sy + 2, sw_int - 4, sh_int - 4), (60, 150, 60))
 
         # Reward overlay.
         if self._reward_pending:

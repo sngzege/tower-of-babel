@@ -14,23 +14,35 @@
 
 ## 2. What is playable right now
 
-`uv run python scripts/run.py` launches the greybox build with full run lifecycle:
+`uv run python scripts/run.py` launches the greybox build with full run lifecycle, build system, and abilities:
 
-- WASD: 8-direction movement, analog speed.
-- Arrow keys: independent 8-direction aim.
-- Mouse: positional 360-degree aim.
-- Space: dodge roll with charge-based cooldown (2 charges, 1.5s regen).
-- Left Mouse / primary attack key: basic 360-degree attack.
-- **Seeded stage traversal**: 3 procedural floors + 1 boss floor (4 floors total).
-- **Room encounters**: combat rooms spawn enemies (greybox dummies).
-- **Room clear + reward**: clear all enemies → 3-choice reward selection via aim direction.
-- **Player death**: player dies → run ends → red overlay → attack to restart.
-- **Boss encounter**: First Boss "Warden of the First Floor" on final floor.
-  - Phase 1 (100%-50% HP): slow charge/sweep attack.
-  - Phase 2 (50%-0% HP): faster movement, faster attacks, AoE shockwave.
-  - Exit blocked while boss alive; boss death unlocks exit.
-- **Boss victory**: exit arena → stage complete → green overlay → attack to restart.
-- **All tuning in data files** (enemies, rooms, stage, attacks, rewards).
+### Controls
+- WASD: 8-direction movement
+- Arrow keys: independent 8-direction aim
+- Mouse: positional 360-degree aim
+- Left Click: primary attack
+- Space: dodge (2 charges, 1.5s regen)
+- **Q**: Charge (dash forward dealing damage)
+- **E**: Shield Bash (close-range knockback + temp armor placeholder)
+- **R**: Whirlwind (AoE spin attack)
+- **T**: War Cry (temporary damage buff, 5s duration)
+
+### Run lifecycle
+- Seeded stage: 3 procedural floors + 1 boss floor (4 floors total)
+- Room encounters: combat rooms spawn greybox dummies
+- Room clear → reward: first clear = 3-weapon choice, subsequent = boon pool
+- Build carries through rooms/floors/boss
+- Player death → red overlay → attack to restart
+- Boss victory → green overlay → attack to restart
+
+### Build system (Phase 9-10)
+- **Weapons**: Sword (balanced), Spear (reach/piercing), Axe (wide/high damage)
+- **Boons**: 17 YAML-defined boons with global and tag-specific modifiers
+- **Abilities**: 4 Warrior abilities (Q/E/R/T) with cooldowns and real effects
+- **Passives**: Hardy (+25 HP), Fury (+15% dmg below 50% HP placeholder)
+- **Weapon upgrades**: Run-time damage/speed/reach/spread upgrades
+- **Class loadout**: Warrior starts with sword + 4 abilities + 1 passive
+- **Build reset**: All temporary state cleared on death/restart
 
 ## 3. Verification (as of Phase 8)
 

@@ -40,6 +40,7 @@ class StatModifier:
     is_percent: bool = False
     source: str = ""
     tags: frozenset[str] = frozenset()
+    condition: str = ""
 
 
 @dataclass(frozen=True)
@@ -70,6 +71,9 @@ class BuildState:
     _crit_chance: float = 0.0
     _crit_damage_mult: float = 1.5
     _tag_mods: dict[tuple[str, str], float] = field(default_factory=dict)
+    _conditional_mods: list[dict] = field(default_factory=list)
+    # Track whether Fury is currently active for toggling.
+    _fury_active: bool = False
 
     def reset(self) -> None:
         """Clear all build components (new run)."""
@@ -86,6 +90,8 @@ class BuildState:
         self._crit_chance = 0.0
         self._crit_damage_mult = 1.5
         self._tag_mods.clear()
+        self._conditional_mods.clear()
+        self._fury_active = False
 
     @property
     def damage_mult(self) -> float: return self._damage_mult
@@ -149,3 +155,26 @@ class BuildState:
 
     def get_weapon_upgrade(self, stat: str, default: float = 0.0) -> float:
         return self.weapon_upgrades.get(stat, default)
+
+    def register_conditional(self, mod: dict) -> None:
+        """Register a conditional modifier (e.g. Fury below 50% HP)."""
+        self._conditional_mods.append(mod)
+
+    def update_conditionals(self, current_hp: float, max_hp: float) -> None:
+        """Evaluate conditional modifiers each frame. Called from scene."""
+        for mod in self._conditional_mods:
+            condition = mod.get("condition", "")
+            if condition == "hp_below_50":
+                should_be_active = current_hp <= max_hp * 0.5
+                is_active = mod.get("_active", False)
+                value = mod.get("value", 0.0)
+                if should_be_active and not is_active:
+                    # Apply Fury.
+                    self._damage_mult *= (1.0 + value)
+                    mod["_active"] = True
+                    self._fury_active = True
+                elif not should_be_active and is_active:
+                    # Remove Fury.
+                    self._damage_mult /= (1.0 + value)
+                    mod["_active"] = False
+                    self._fury_active = False
