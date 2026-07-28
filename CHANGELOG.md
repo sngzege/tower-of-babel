@@ -8,6 +8,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 12 — Developer Experience & Damage Formula (2026-07-29):
+  - **Centralized Damage Formula** (`src/gameplay/combat/damage_formula.py`): single authoritative calculation path for all damage. Formula: `final = (attack_power * coefficient) * global_mult * tag_mult * conditional [* crit_mult]`. Supports basic attacks, ability scaling, multi-hit, crit mechanics, and zero/negative guards.
+  - **Ability data now uses coefficients**: Charge (1.2x), Shield Bash (0.8x), Whirlwind (1.5x). Backward-compatible with `damage` field for legacy data.
+  - **BuildState multipliers now actually applied to damage**: basic attacks and abilities both apply `total_damage_for()` with global and tag-specific multipliers.
+  - **Hover/click mouse selection for reward cards**: mouse hover highlights card with brighter border, click selects. Keyboard still works alongside mouse. Respects abstract input system (`ActionFrame.pointer` + `Action.PRIMARY_ATTACK`).
+  - **Passive descriptions in HUD**: each passive shows name + description (data-driven from registry), replacing the comma-joined name list.
+  - **Boon/weapon descriptions on reward cards**: reward cards now show item descriptions below the name, truncated to fit.
+  - **Responsive HUD layout**: ability bar width scales with viewport (`min(160, w//5)`), cooldown text positioned safely, toggle indicators clamped. Verified at 800x600, 1280x720, 1920x1080, 2560x1440.
+  - **Combat playground improvements**: 4 greybox dummies + 1 elite dummy (gold, 150HP). Press F to restore HP, Escape to respawn all dead enemies. HUD shows test mode controls.
+  - **Elite enemy type** (`data/enemies/common/greybox_elite.yaml`): 150 HP, larger body, gold render color.
+  - **Direction indicator fix**: LEFT maps to left card, DOWN to middle, RIGHT to right. Arrow hints now correct (← Left, ↓ Down, Right →).
+
+### Fixed
+
+- Reward card direction arrows and keyboard selection mapping were inverted.
+- Ability bar overflow at smaller resolutions (hardcoded 240px slot width).
+- BuildState multipliers were computed but never applied to actual damage instances.
+- Passive HUD only showed comma-joined names with no description.
+- Reward cards showed no descriptions, making choices opaque.
+- No mouse support for reward selection.
+- Combat test mode had only 4 identical dummies with no variety.
+- Test assertion `len(ability_ids) == 4` failed when boons granted additional abilities (changed to `>= 4`).
+- HUD layout tests verified all UI elements fit at multiple resolutions.
+
 - Phase 10 — Build System Integration (2026-07-28):
   - Ability executors wired into Player: 4 ability slots (Q/E/R/T) in Player.ability_executors dict, activation from PlayerIntent.ability_pressed via input actions (SKILL_1→Q, SKILL_2→E, ULTIMATE→R, AURA→T). AbilityExecutor.cooldown lifecycle integrated into Player.update().
   - Ability data files: warrior_charge (dash), warrior_shield_bash (knockback+armor), warrior_whirlwind (AoE), warrior_war_cry (aura/buff). All with cooldowns and effects.

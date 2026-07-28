@@ -4,7 +4,7 @@
 > developer) can resume work without re-reading the whole project.
 > **Rule:** whoever advances the project updates this file in the same
 > commit (IMPLEMENTATION_PLAN.md snapshot + CHANGELOG.md too).
-> Last updated: **2026-07-28** (Phase 11 — Stabilization & Readability COMPLETE).
+> Last updated: **2026-07-29** (Phase 12 — Stabilization & Developer Experience COMPLETE).
 
 ## 1. Where we are
 
@@ -12,6 +12,7 @@
 - **Phase 9 — Build System Foundation:** COMPLETE.
 - **Phase 10 — Build System Integration:** COMPLETE.
 - **Phase 11 — Stabilization & Readability:** COMPLETE (2026-07-28).
+- **Phase 12 — Developer Experience & Damage Formula:** COMPLETE (2026-07-29).
 
 ## 2. What is playable right now
 
@@ -58,9 +59,9 @@
 ## 3. Verification (as of Phase 11 — improved greybox)
 
 ```text
-uv run pytest -q                                -> 309 passed, 1 skipped
+uv run pytest -q                                -> 332 passed, 1 skipped
 uv run ruff check src tests tools scripts       -> clean (0 errors)
-uv run python -m mypy src                       -> clean (128 files)
+uv run python -m mypy src                       -> clean (129 files)
 uv run python tools/data_validation/validate_data.py -> OK
 uv run python scripts/run.py --headless --frames 300 --log-level WARNING -> exit 0
 uv run python scripts/run.py --headless --combat-test --frames 300 --log-level WARNING -> exit 0
@@ -105,14 +106,17 @@ uv run python scripts/run.py --headless --combat-test --frames 300 --log-level W
 
 ## 7. Technical debt / known gaps
 
-- No sprite pipeline: player/enemies/boss render as tinted rects.
+- No sprite pipeline: player/enemies/boss render as tinted rects (elite now gold vs red).
 - No input buffering / coyote-style dodge queue yet.
-- Boss uses two separate AttackExecutors (primary + aoe) rather than a single data-driven attack switch — works for one boss but would need generalization for multiple boss types.
-- Boss room's victory exit door target is hardcoded by the floor assembler (FLOOR_EXIT_TARGET) — works for all stages but doesn't support stage-specific exit behavior.
+- Boss uses two separate AttackExecutors (primary + aoe) rather than a single data-driven attack switch.
+- Boss room's victory exit door target is hardcoded — works but doesn't support stage-specific behavior.
 - No animation/VFX/sound for boss phase transition.
-- Boss rewards: currently no special boss reward or trophy drop (just stage completion; rewards from combat rooms earned during traversal are preserved).
+- Boss rewards: currently no special boss reward or trophy drop.
 - No meta-progression (village, persistent upgrades, currency).
 - Shield Bash defense buff is a visual placeholder only (no actual damage reduction implemented).
 - Ruff clean (0 errors — line-length set to 100 in pyproject.toml).
-- Floor traversal in integration tests requires walking through doors; a more reliable programmatic navigation helper would improve test stability.
-- Combat test mode (`--combat-test`) is a convenience shortcut; it doesn't test the full stage progression.
+- Floor traversal in integration tests requires walking through doors.
+- Ability data still has backward-compatible `damage` field alongside `coefficient`.
+- DamageFormula supports enemy resistances/armor/difficulty scaling as future extensions (not implemented).
+- Combat test respawn does not restore dead boss (intentional — boss testing requires full run restart).
+- Weapon tags loaded from registry each frame for formula (minor perf cost; cache for release).
