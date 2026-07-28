@@ -1,0 +1,7 @@
+# Keen Eye
+id: boon_crit_chance
+name: Keen Eye
+description: "Critical chance +10%"
+tags: ['offense']
+effects:
+  - {stat: crit_chance, value: 0.1, is_percent: false}

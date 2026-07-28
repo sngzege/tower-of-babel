@@ -1,0 +1,7 @@
+# Impaler — piercing damage boon
+id: boon_piercing_damage
+name: Impaler
+description: "Piercing attacks +35% damage"
+tags: [offense, piercing]
+effects:
+  - {stat: damage, tag: piercing, value: 0.35, is_percent: true}

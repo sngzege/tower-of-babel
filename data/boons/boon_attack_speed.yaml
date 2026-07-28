@@ -1,0 +1,7 @@
+# Quick Hands
+id: boon_attack_speed
+name: Quick Hands
+description: "Attack speed +20%"
+tags: ['offense']
+effects:
+  - {stat: attack_speed, value: 0.2, is_percent: true}

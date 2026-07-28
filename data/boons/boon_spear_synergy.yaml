@@ -1,0 +1,8 @@
+# Spear Dancer — piercing + speed boon
+id: boon_spear_synergy
+name: Spear Dancer
+description: "Piercing attacks +15% damage and +10% speed"
+tags: [offense, piercing, mobility]
+effects:
+  - {stat: damage, tag: piercing, value: 0.15, is_percent: true}
+  - {stat: move_speed, value: 0.10, is_percent: true}

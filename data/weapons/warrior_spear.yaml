@@ -1,0 +1,10 @@
+# Spear — longer reach, thrust/piercing attack, slower
+id: warrior_spear
+name: Warrior Spear
+description: Long reach and piercing thrusts. Keep enemies at a distance.
+tags: [melee, thrust, piercing]
+attack_ref: spear_attack
+damage_mult: 1.2
+attack_speed_mult: 0.8
+reach_mult: 1.5
+spread_mult: 0.7

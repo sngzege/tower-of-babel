@@ -1,0 +1,7 @@
+# Close Quarters — melee damage boon
+id: boon_melee_damage
+name: Close Quarters
+description: "Melee attacks +25% damage"
+tags: [offense, melee]
+effects:
+  - {stat: damage, tag: melee, value: 0.25, is_percent: true}

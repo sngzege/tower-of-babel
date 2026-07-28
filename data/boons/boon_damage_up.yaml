@@ -1,0 +1,7 @@
+# Barbed Edge
+id: boon_damage_up
+name: Barbed Edge
+description: "Attack damage +20%"
+tags: ['offense']
+effects:
+  - {stat: damage, value: 0.2, is_percent: true}

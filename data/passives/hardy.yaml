@@ -1,0 +1,9 @@
+# Hardy — innate health bonus
+id: hardy
+name: Hardy
+description: +25 max health.
+tags: [defense]
+stackable: false
+max_stacks: 1
+modifiers:
+  - {stat: max_health, value: 25.0, is_percent: false}

@@ -1,0 +1,9 @@
+# Warrior Charge — dash forward dealing damage
+id: warrior_charge
+name: Charge
+description: Dash forward, damaging enemies in your path.
+tags: [melee, mobility, offense]
+cooldown: 4.0
+mana_cost: 0.0
+effects:
+  - {type: dash, distance: 120.0, damage: 30.0, damage_types: [physical], tags: [melee]}

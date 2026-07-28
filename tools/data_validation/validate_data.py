@@ -45,6 +45,7 @@ CATEGORY_SCHEMAS: dict[str, str] = {
     "unlocks": "unlock",
     "progression": "progression",
     "combat": "attack",
+    "boons": "passive",
 }
 
 # (category, second-level folder) -> schema name

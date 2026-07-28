@@ -1,0 +1,10 @@
+# Sword — fast melee weapon with moderate reach, sweep tag
+id: warrior_sword
+name: Warrior Sword
+description: A balanced blade. Quick slashes with reliable reach.
+tags: [melee, sweep]
+attack_ref: sword_attack
+damage_mult: 1.0
+attack_speed_mult: 1.0
+reach_mult: 1.0
+spread_mult: 1.0

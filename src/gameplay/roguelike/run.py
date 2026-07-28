@@ -13,6 +13,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
+from gameplay.builds.build_state import BuildState
+
 
 class RunPhase(Enum):
     """High-level run lifecycle phases."""
@@ -67,6 +69,7 @@ class RunManager:
 
     def __init__(self) -> None:
         self.state = RunState()
+        self.build = BuildState()
 
     # -- Lifecycle --
 
@@ -108,8 +111,9 @@ class RunManager:
         return self.state.phase in (RunPhase.DEATH, RunPhase.VICTORY, RunPhase.COMPLETE)
 
     def reset(self) -> None:
-        """Reset for a new run."""
+        """Reset to NOT_STARTED, clearing all build state."""
         self.state = RunState()
+        self.build.reset()
 
     # -- Queries --
 

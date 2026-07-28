@@ -1,0 +1,13 @@
+# Axe attack — wide sweep, slow, hard-hitting
+id: axe_attack
+name: Axe Sweep
+tags: [physical, melee, sweep]
+windup: 0.08
+active: 0.14
+recovery: 0.1
+cooldown: 0.7
+damage: 30.0
+damage_types: [physical]
+hitbox:
+  spread: 32.0
+  reach: 32.0

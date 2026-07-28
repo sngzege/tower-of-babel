@@ -1,0 +1,10 @@
+# Axe — wide sweep, shorter range, slower, higher damage
+id: warrior_axe
+name: Warrior Axe
+description: Heavy blade with wide arcs. Devastating but slow.
+tags: [melee, sweep]
+attack_ref: axe_attack
+damage_mult: 1.5
+attack_speed_mult: 0.6
+reach_mult: 0.85
+spread_mult: 1.6

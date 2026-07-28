@@ -1,0 +1,9 @@
+# Warrior Whirlwind — AoE spin attack
+id: warrior_whirlwind
+name: Whirlwind
+description: Spin around, damaging all nearby enemies.
+tags: [melee, sweep, offense]
+cooldown: 8.0
+mana_cost: 0.0
+effects:
+  - {type: aoe, range: 60.0, damage: 40.0, damage_types: [physical], tags: [melee, sweep]}

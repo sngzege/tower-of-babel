@@ -1,0 +1,13 @@
+# Sword attack — standard melee sweep
+id: sword_attack
+name: Sword Slash
+tags: [physical, melee, sweep]
+windup: 0.0
+active: 0.12
+recovery: 0.05
+cooldown: 0.45
+damage: 20.0
+damage_types: [physical]
+hitbox:
+  spread: 20.0
+  reach: 38.0

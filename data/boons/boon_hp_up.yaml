@@ -1,0 +1,7 @@
+# Vitality Charm
+id: boon_hp_up
+name: Vitality Charm
+description: "Max HP +30"
+tags: ['defense']
+effects:
+  - {stat: max_health, value: 30.0, is_percent: false}

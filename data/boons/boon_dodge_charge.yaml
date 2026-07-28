@@ -1,0 +1,7 @@
+# Evasive Maneuver
+id: boon_dodge_charge
+name: Evasive Maneuver
+description: "+1 dodge charge"
+tags: ['mobility']
+effects:
+  - {stat: dodge_charges, value: 1.0, is_percent: false}

@@ -1,0 +1,8 @@
+# Precision Thrust — thrust boon with crit
+id: boon_thrust_mastery
+name: Precision Thrust
+description: "Thrust attacks +20% damage and +5% crit"
+tags: [offense, thrust]
+effects:
+  - {stat: damage, tag: thrust, value: 0.20, is_percent: true}
+  - {stat: crit_chance, value: 0.05, is_percent: false}

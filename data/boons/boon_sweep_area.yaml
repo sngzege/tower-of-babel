@@ -1,0 +1,7 @@
+# Wide Arc — sweep area boon
+id: boon_sweep_area
+name: Wide Arc
+description: "Sweep attacks +30% area"
+tags: [offense, sweep]
+effects:
+  - {stat: damage, tag: sweep, value: 0.30, is_percent: true}

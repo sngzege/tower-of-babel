@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 9 — Build System Foundation (2026-07-28):
+  - BuildState (`src/gameplay/builds/build_state.py`): authoritative run build representation with weapon/ability/passive/boon IDs, cached modifier values (damage_mult, move_speed_mult, attack_speed_mult, max_health_bonus, dodge_charge_bonus, crit_chance), tag-specific damage modifiers, total_damage_for() computation with tag synergy.
+  - WeaponData (`src/gameplay/builds/weapon.py`): data-driven weapon definition from YAML, apply_to_attack() modifies AttackData (damage_mult, speed_mult, reach_mult, spread_mult).
+  - 3 prototype weapons: Warrior Sword (balanced, sweep), Warrior Spear (reach, piercing/thrust), Warrior Axe (wide sweep, high damage, slow). Data files under data/weapons/ with corresponding attack data under data/combat/attacks/.
+  - AbilityData + AbilityExecutor (`src/gameplay/builds/ability.py`): data-driven ability cooldowns, activation, effects. Three prototype abilities: Charge (dash), Shield Bash (knockback+armor), Whirlwind (AoE spin).
+  - PassiveData (`src/gameplay/builds/passive.py`): data-driven passive modifiers (StatModifier) with stack/max_stacks support.
+  - BoonData (`src/gameplay/builds/boon.py`): data-driven run boons, apply_boon_to_build() applies effects (stat modifiers + tag-specific bonuses). 11 prototype boons with tag synergy (melee, sweep, piercing, thrust, global).
+  - Tag/synergy system: BuildState._tag_mods dictionary enables tag-based effect matching (e.g. "piercing attacks +35%" only applies to attacks with the piercing tag).
+  - PlaytestScene updated: first room clear offers 3-weapon choice (→ aim direction selects), subsequent room clears offer boon choices from registry, BuildState modifications feed into player stats (move speed, max HP, attack data).
+  - Reward → Build pipeline: Boon selection → apply_boon_to_build() → BuildState cached modifiers → Player stat updates.
+  - Death/reset: BuildState.reset() clears all temporary boon IDs and cached modifier values.
+  - Data validation and loader: weapons, abilities, passives, boons categories added to main.py/data_loader/validate_data.py.
+  - 16 new tests: BuildState lifecycle, weapon data loading, weapon tag differences, weapon attack modification, boon loading, global damage/tag damage/health boons, stacking, tag synergy, build reset, sword+melee build path, spear+piercing build path.
+  - Suite: **301 passed + 1 skip** (up from 285).
+
 - Phase 8 — Vertical Slice COMPLETE (2026-07-28):
   - Boss AI (`src/gameplay/bosses/boss_ai.py`): `BossAI` class with phase-based AI, `BossPhase` enum (PHASE_1, PHASE_2, DEAD), two AttackExecutors (primary sweep + AoE shockwave), phase transition at 50% HP, strafing/circle/back-up movement behaviors.
   - Boss data (`data/enemies/bosses/first_boss.yaml`): 300 HP, 48x48 body, phase-specific speed and attack tuning.

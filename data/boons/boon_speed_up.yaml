@@ -1,0 +1,7 @@
+# Wind Step
+id: boon_speed_up
+name: Wind Step
+description: "Move speed +15%"
+tags: ['mobility']
+effects:
+  - {stat: move_speed, value: 0.15, is_percent: true}

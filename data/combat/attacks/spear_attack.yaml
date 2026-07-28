@@ -1,0 +1,13 @@
+# Spear attack — long reach, narrow piercing thrust
+id: spear_attack
+name: Spear Thrust
+tags: [physical, melee, thrust, piercing]
+windup: 0.05
+active: 0.15
+recovery: 0.08
+cooldown: 0.55
+damage: 22.0
+damage_types: [physical]
+hitbox:
+  spread: 12.0
+  reach: 54.0
