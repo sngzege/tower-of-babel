@@ -1,0 +1,24 @@
+# Village hub room (greybox) — walkable space with three building plots.
+# PROVISIONAL placeholder geometry for the autonomous completion run.
+# Buildings are drawn by VillageScene from data/village/buildings plot_rect.
+id: greybox_village
+kind: start
+name: Village Hub (Greybox)
+size:
+  width: 1280
+  height: 800
+player_spawn:
+  x: 640
+  y: 700
+solids:
+  # Border walls.
+  - {x: 0, y: 0, w: 1280, h: 24}
+  - {x: 0, y: 776, w: 1280, h: 24}
+  - {x: 0, y: 0, w: 24, h: 800}
+  - {x: 1256, y: 0, w: 24, h: 800}
+  # Dungeon entrance arch (bottom-center, walkable gap at y=776).
+  - {x: 560, y: 0, w: 160, h: 24}
+  # Decorative divider rows.
+  - {x: 60, y: 420, w: 1160, h: 16}
+doors: []
+tags: [greybox, placeholder, village]

@@ -1,0 +1,16 @@
+# Building C (greybox placeholder) — hosts the UPGRADES service.
+# PROVISIONAL placeholder content for the autonomous completion run.
+# Not a balance or content decision (RULES.md §0).
+id: building_c
+name: Upgrade Hall C
+service: upgrades
+plot: plot_west
+plot_rect: {x: 120, y: 480, w: 280, h: 160}
+tiers:
+  - cost: {}
+    unlocks: []
+    visual: plot
+  - cost: {relics: 1}
+    unlocks: [service_upgrades_tier1]
+    visual: tier1
+tags: [greybox, placeholder]

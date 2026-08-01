@@ -8,6 +8,13 @@ fields:
   name:    {type: str, required: true}
   service: {type: str}   # service slot this building hosts
   plot:    {type: str}   # village plot id
+  plot_rect:
+    type: dict
+    keys:
+      x: {type: float, required: true}
+      y: {type: float, required: true}
+      w: {type: float, required: true}
+      h: {type: float, required: true}
   tiers:
     type: list
     min_length: 1

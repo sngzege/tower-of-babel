@@ -1,0 +1,16 @@
+# Building B (greybox placeholder) — hosts the RUN PREP service.
+# PROVISIONAL placeholder content for the autonomous completion run.
+# Not a balance or content decision (RULES.md §0).
+id: building_b
+name: Caravan Post B
+service: run_prep
+plot: plot_east
+plot_rect: {x: 880, y: 480, w: 280, h: 160}
+tiers:
+  - cost: {}
+    unlocks: []
+    visual: plot
+  - cost: {relics: 1}
+    unlocks: [service_run_prep_tier1]
+    visual: tier1
+tags: [greybox, placeholder]
