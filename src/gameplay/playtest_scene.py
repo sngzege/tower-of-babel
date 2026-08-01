@@ -1230,13 +1230,16 @@ class PlaytestScene(Scene):
 
     def render(self, renderer: Renderer) -> None:
         self._screen_h = renderer.size[1]
-        # Floor tiles (32x32 sprite, night stone texture).
+        # Floor tiles (32x32 sprite, night stone texture). The tile must be
+        # scaled by camera zoom so each 32px world tile covers exactly
+        # 32*zoom screen pixels (fix: tiles looked half-size before).
         tile = 32
+        tile_scale = max(1, int(round(self.camera.zoom)))
         tw, th = self.room.width, self.room.height
         for ty in range(0, int(th), tile):
             for tx in range(0, int(tw), tile):
                 sx, sy = self.camera.world_to_screen(tx, ty)
-                renderer.draw_image("tile_floor", int(sx), int(sy), scale=1)
+                renderer.draw_image("tile_floor", int(sx), int(sy), scale=tile_scale)
         for solid in self.room.solids:
             renderer.draw_rect(self.camera.screen_rect(solid), _WALL_COLOR)
 
