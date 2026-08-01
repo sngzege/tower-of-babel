@@ -1,0 +1,13 @@
+# Warrior class mastery curve (greybox placeholder).
+# PROVISIONAL placeholder content for the autonomous completion run.
+# L13: milestones grant permanent global passive bonuses. Values are
+# placeholders — balance is a human review pass after the game is playable.
+id: warrior_mastery
+kind: mastery
+class_id: warrior
+xp_per_level: 100
+bonuses:
+  - {at_level: 2, stat: max_health, value: 10, is_percent: false}
+  - {at_level: 3, stat: damage, value: 0.05, is_percent: true}
+  - {at_level: 5, stat: move_speed, value: 0.03, is_percent: true}
+tags: [greybox, placeholder]

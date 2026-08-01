@@ -4,6 +4,17 @@ version: 1
 fields:
   id:     {type: str, required: true, pattern: '^[a-z][a-z0-9_]*$'}
   kind:   {type: str}   # xp_curve / mastery / milestone (provisional vocabulary)
+  class_id: {type: str} # class this mastery curve belongs to
+  xp_per_level: {type: int, min: 1}
+  bonuses:
+    type: list
+    item:
+      type: dict
+      keys:
+        at_level:  {type: int, min: 1, required: true}
+        stat:      {type: str, required: true}
+        value:     {type: float, required: true}
+        is_percent: {type: bool, default: false}
   tags:   {type: list, item: str, default: []}
   levels: {type: list, item: dict, default: []}
 example:

@@ -38,6 +38,7 @@ class RunResult:
     rooms_cleared: int = 0
     enemies_killed: int = 0
     gold_earned: int = 0
+    relics_earned: int = 0
 
 
 @dataclass
@@ -52,6 +53,7 @@ class RunState:
     floor_enemies_remaining: int = 0
     rewards_collected: list[str] = field(default_factory=list)
     seed: int | str = 42
+    gold_earned: int = 0
 
 
 class RunManager:
@@ -82,9 +84,13 @@ class RunManager:
         self.state.phase = RunPhase.BOSS
 
     def on_victory(self) -> RunResult:
-        """Complete the run with a boss victory."""
+        """Complete the run with a boss victory.
+
+        Provisional (RULES.md §0): boss victory banks one relic (L9) and the
+        stage's gold. Values are placeholders, not balance decisions.
+        """
         self.state.phase = RunPhase.VICTORY
-        return self._build_result(victory=True)
+        return self._build_result(victory=True, relics_earned=1)
 
     def on_death(self) -> RunResult:
         """End the run with player death."""
@@ -117,7 +123,9 @@ class RunManager:
 
     # -- Queries --
 
-    def _build_result(self, victory: bool) -> RunResult:
+    def _build_result(
+        self, victory: bool, relics_earned: int = 0
+    ) -> RunResult:
         return RunResult(
             victory=victory,
             seed=self.state.seed,
@@ -125,6 +133,8 @@ class RunManager:
             floors_cleared=self.state.current_floor,
             rooms_cleared=self.state.rooms_cleared,
             enemies_killed=self.state.enemies_killed,
+            gold_earned=self.state.gold_earned,
+            relics_earned=relics_earned,
         )
 
     @property

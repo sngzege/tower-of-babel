@@ -1,0 +1,10 @@
+# First boss unlock (greybox placeholder): first boss kill feeds the
+# reward pool with an additional boon on future runs (L15 run-start rule).
+# PROVISIONAL placeholder content for the autonomous completion run.
+id: unlock_first_boss
+name: First Boss Reward
+kind: boon_pool
+source: first_boss_kill
+requires: []
+grants: [boon_weapon_damage]
+tags: [greybox, placeholder]
