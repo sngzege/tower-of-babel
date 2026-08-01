@@ -20,3 +20,4 @@ logs/*
 !logs/.gitkeep
 saves/*
 !saves/.gitkeep
+.local-docs/
