@@ -1,0 +1,21 @@
+# NPC A (greybox placeholder) — hosts the LOADOUT service.
+# PROVISIONAL placeholder content for the autonomous completion run.
+# Not a balance or content decision (RULES.md §0).
+id: npc_a
+name: NPC A
+service: loadout
+building_id: building_a
+arrival:
+  trigger: first_boss_kill
+tracks:
+  service_tier:
+    levels:
+      - requires_milestone: ""
+        unlocks: []
+      - requires_milestone: first_boss_kill
+        unlocks: [service_loadout_tier1]
+dialogue:
+  greeting: "NPC A greets you."
+  service_tier_0: "NPC A offers basic loadout service."
+  service_tier_1: "NPC A offers an expanded loadout service."
+tags: [greybox, placeholder]

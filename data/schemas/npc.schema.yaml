@@ -18,6 +18,7 @@ fields:
       service_tier: {type: dict}
       questline:    {type: dict}
       relationship: {type: dict}
+  dialogue: {type: dict}   # dialogue as data (localization deferred)
   tags: {type: list, item: str, default: []}
 example:
   id: example_npc

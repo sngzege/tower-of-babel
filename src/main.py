@@ -41,6 +41,10 @@ CONTENT_CATEGORIES = (
     "enemies",
     "loot",
     "world",
+    "village",
+    "npcs",
+    "progression",
+    "unlocks",
 )
 PLAYER_STATS_ID = "player_base"
 DEFAULT_STAGE_ID = "first_stage"
@@ -64,6 +68,11 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_STAGE_ID,
         help="stage content id from data/world/stages",
     )
+    parser.add_argument(
+        "--village",
+        action="store_true",
+        help="spawn in the village hub scene (Phase 11)",
+    )
     args = parser.parse_args(argv)
 
     if args.headless:
@@ -85,6 +94,47 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     game = Game(config=config, vsync=False if args.headless else None)
+
+    if args.village:
+        # Village hub mode (Phase 11): walkable hub with building plots.
+        from gameplay.village.village import VillageState
+        from gameplay.village.village_scene import VillageScene
+        from world.room import Room
+
+        village_room = Room.from_document(registry.get("world", "greybox_village"))
+        village_world = village_room.build_collision_world()
+        spawn_x, spawn_y = village_room.player_spawn
+        player = Player(
+            stats=PlayerStats.from_document(registry.get("player", PLAYER_STATS_ID)),
+            x=spawn_x,
+            y=spawn_y,
+            events=game.events,
+            attack_data=AttackData.from_document(
+                registry.get("combat", "player_default_attack")
+            ),
+        )
+        camera_config = config.load("display").get("camera", {})
+        camera = Camera(
+            viewport_size=game.renderer.size,
+            zoom=float(camera_config.get("zoom", 1.0)),
+            follow_stiffness=float(camera_config.get("follow_stiffness", 8.0)),
+            bounds=village_room.bounds,
+        )
+        village = VillageState.from_registry_documents(registry.all("village"))
+        game.register_scene(
+            VillageScene(
+                player=player,
+                room=village_room,
+                world=village_world,
+                camera=camera,
+                village=village,
+                registry=registry,
+            ),
+            initial=True,
+        )
+        game.run(max_frames=args.frames)
+        _logger.info("Village mode complete")
+        return 0
 
     if args.combat_test:
         # Combat test mode: spawn in a combat room with enemies.

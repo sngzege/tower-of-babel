@@ -1,0 +1,21 @@
+# NPC B (greybox placeholder) — hosts the RUN PREP service.
+# PROVISIONAL placeholder content for the autonomous completion run.
+# Not a balance or content decision (RULES.md §0).
+id: npc_b
+name: NPC B
+service: run_prep
+building_id: building_b
+arrival:
+  trigger: first_boss_kill
+tracks:
+  service_tier:
+    levels:
+      - requires_milestone: ""
+        unlocks: []
+      - requires_milestone: first_boss_kill
+        unlocks: [service_run_prep_tier1]
+dialogue:
+  greeting: "NPC B greets you."
+  service_tier_0: "NPC B offers basic run preparation."
+  service_tier_1: "NPC B offers improved run preparation."
+tags: [greybox, placeholder]

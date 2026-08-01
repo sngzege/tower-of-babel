@@ -1,0 +1,21 @@
+# NPC C (greybox placeholder) — hosts the UPGRADES service.
+# PROVISIONAL placeholder content for the autonomous completion run.
+# Not a balance or content decision (RULES.md §0).
+id: npc_c
+name: NPC C
+service: upgrades
+building_id: building_c
+arrival:
+  trigger: first_boss_kill
+tracks:
+  service_tier:
+    levels:
+      - requires_milestone: ""
+        unlocks: []
+      - requires_milestone: first_boss_kill
+        unlocks: [service_upgrades_tier1]
+dialogue:
+  greeting: "NPC C greets you."
+  service_tier_0: "NPC C offers basic upgrade service."
+  service_tier_1: "NPC C offers advanced upgrade service."
+tags: [greybox, placeholder]
