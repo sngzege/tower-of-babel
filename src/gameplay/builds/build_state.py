@@ -177,3 +177,40 @@ class BuildState:
                     self._damage_mult /= (1.0 + value)
                     mod["_active"] = False
                     self._fury_active = False
+
+    # -- Serialization (Phase 14: run checkpoint) --
+
+    def to_state(self) -> dict[str, object]:
+        """Serialize the build for a run checkpoint.
+
+        Only stable, data-driven components are stored; cached modifier
+        values are recomputed from them on restore (single source of truth).
+        """
+        return {
+            "weapon_id": self.weapon_id,
+            "ability_ids": list(self.ability_ids),
+            "passive_ids": list(self.passive_ids),
+            "boon_ids": list(self.boon_ids),
+            "weapon_upgrades": dict(self.weapon_upgrades),
+        }
+
+    @classmethod
+    def state_from(cls, state: dict[str, object]) -> BuildState:
+        """Rebuild a BuildState from a checkpoint payload (Phase 14)."""
+        build = cls()
+        build.weapon_id = str(state.get("weapon_id", "unarmed"))
+        raw_abilities = state.get("ability_ids", [])
+        if isinstance(raw_abilities, list):
+            build.ability_ids.extend(str(i) for i in raw_abilities)
+        raw_passives = state.get("passive_ids", [])
+        if isinstance(raw_passives, list):
+            build.passive_ids.extend(str(i) for i in raw_passives)
+        raw_boons = state.get("boon_ids", [])
+        if isinstance(raw_boons, list):
+            build.boon_ids.extend(str(i) for i in raw_boons)
+        raw_upgrades = state.get("weapon_upgrades", {})
+        if isinstance(raw_upgrades, dict):
+            build.weapon_upgrades.update(
+                {str(k): float(v) for k, v in raw_upgrades.items()}
+            )
+        return build
