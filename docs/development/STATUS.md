@@ -99,10 +99,12 @@ uv run python scripts/run.py --headless --combat-test --frames 300 --log-level W
 
 ## 6. How to resume (for the next agent)
 
-1. Read RULES.md, this file, IMPLEMENTATION_PLAN.md.
-2. Next phase: Content Expansion (Phase 11 — see IMPLEMENTATION_PLAN.md).
-3. Follow the AI DEVELOPMENT LOOP (end of IMPLEMENTATION_PLAN.md).
-4. Before finishing: run the five verification commands; update STATUS.md, plan, and CHANGELOG.md; commit per RULES.md section 19; push to remote.
+1. **Read RULES.md first** — §0 is the standing directive for the AUTONOMOUS COMPLETION RUN: it pre-authorizes Phases 11→15 (Village, NPC, Progression, Save/Load, Slice Integration) with provisional defaults for open design decisions. No balance tuning; greybox placeholders only.
+2. Read this file, IMPLEMENTATION_PLAN.md (snapshot + detailed phase sections 11-15), VERTICAL_SLICE.md.
+3. Next phase: **Phase 11 — Village Framework** (detailed in IMPLEMENTATION_PLAN.md), then 12 (NPCs), 13 (Progression), 14 (Save/Load), 15 (Vertical Slice Integration).
+4. Follow the AI DEVELOPMENT LOOP (end of IMPLEMENTATION_PLAN.md).
+5. Before finishing: run the five verification commands; update STATUS.md, plan, and CHANGELOG.md; commit per RULES.md section 19; push to remote.
+6. **STOP after Phase 15** — the playable slice is the human gate. Do NOT start Phases 16+ (content/balance/polish) without the developer's playtest sign-off.
 
 ## 7. Technical debt / known gaps
 

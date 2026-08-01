@@ -1,10 +1,38 @@
 # PROJECT RULES
 
-## Project Identity
+## 0. STANDING DIRECTIVE — AUTONOMOUS COMPLETION RUN (2026-08-01)
 
-This document defines the permanent rules, boundaries, principles, and development philosophy of the game project.
-This file is authoritative for all AI-assisted development.
-The AI must follow this document before making architectural, gameplay, content, or implementation decisions.
+The human developer issued a standing directive to complete the project into a
+**playable product** through an autonomous agent run. This section overrides the
+approval gates in §3 for the duration of this run, under the following terms:
+
+1. **Authorized scope:** Phases 11→15 of IMPLEMENTATION_PLAN.md (Village
+   Framework, NPC Framework, Persistent Progression, Save/Load Integration,
+   Vertical Slice Integration). These are the remaining framework phases needed
+   for a complete, playable loop per VERTICAL_SLICE.md §1/§4.
+2. **Content rule:** Only greybox placeholder content is implemented during this
+   run (neutral names, tinted rects, placeholder data). No theme/lore/final
+   content is invented. **No balance tuning** — use the sensible defaults that
+   already exist; balance is a human review pass AFTER the game is playable.
+3. **Open design decisions (DESIGN_DECISIONS.md §3) get PROVISIONAL defaults,**
+   recorded in the code/data and in the changelog, never silently treated as
+   locked:
+   - **D3-detail (character model):** one hero, class-switching; meta-progression
+     stored per class (architecture allows a roster later).
+   - **D7 (floor navigation):** current free-roam room-graph (FloorGraph +
+     door traversal) — already implemented, stays.
+   - **D14 (in-run growth):** choice-of-3 boons (already implemented, stays).
+   - **D15 (mid-run save/quit):** save at village + run checkpoint save at room
+     transitions; quit-to-menu saves the run checkpoint.
+4. **Mechanism neutrality:** the mechanisms implemented must remain rule-agnostic
+   so a future design decision can change behavior without redesign.
+5. **Final gate is HUMAN:** when the playable slice is complete, the agent stops
+   and reports. The human developer playtests before any content/balance work.
+6. **Everything else in RULES.md stays in force** (data-driven, no magic values,
+   commit discipline, testing, verification commands, §20 change protocol).
+
+If the human developer revokes or amends this directive, §0 yields to the new
+instruction.
 
 ---
 

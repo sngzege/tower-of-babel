@@ -1,8 +1,9 @@
-# CONTINUATION PROMPT — Phase 8 Complete: Vertical Slice
+# CONTINUATION PROMPT — Phase 12 Complete: Autonomous Completion Run
 
 > **When to use:** the next agent picks up from this exact state. Copy-paste
 > this prompt at the start of the session so the agent knows exactly where we
 > are, what is already implemented, and what the next deliverables are.
+> Updated: **2026-08-01**.
 
 ---
 
@@ -11,83 +12,107 @@
 - Project: Tower of Babel (Action RPG + Roguelite)
 - Repo: https://github.com/sngzege/tower-of-babel
 - Branch: `main`
-- Latest commit: (Phase 8 vertical slice complete)
 - Living status file: `docs/development/STATUS.md`
-- Last agent completed: Phase 8 — Vertical Slice.
+- **RULES.md §0 is a STANDING DIRECTIVE (2026-08-01): the human developer has
+  pre-authorized an autonomous completion run for Phases 11→15** — Village
+  Framework, NPC Framework, Persistent Progression, Save/Load Integration,
+  Vertical Slice Integration — with greybox placeholders only, provisional
+  defaults for open design decisions, and **no balance tuning**. The playable
+  slice is the human gate; STOP after Phase 15.
 
-## What is already implemented
+## What is already implemented (Phase 12 complete, 2026-07-29)
 
-### Playable at the end of Phase 8
+Playable greybox build via `uv run python scripts/run.py` (full run lifecycle,
+build system, abilities) and `uv run python scripts/run.py --combat-test`
+(dedicated combat arena):
 
-`uv run python scripts/run.py` launches a greybox build with full run lifecycle:
+- **Player**: WASD movement, 360° aim (mouse or arrows), attack, dodge with
+  charges + i-frames; Q/E/R/T ability slots (Charge, Shield Bash, Whirlwind,
+  War Cry).
+- **Combat**: centralized damage formula (`damage_formula.py`), data-driven
+  attacks/abilities, damage numbers, hit flash, collision-aware knockback.
+- **Build system**: 3 weapons (sword/spear/axe), 17 YAML boons, tag-based
+  modifiers, passives, weapon upgrades, Warrior class loadout, build persists
+  across rooms/floors, reset on death.
+- **Procedural stage**: 3 seeded floors + 1 boss floor (4 total), room
+  encounters, reward choice-of-3, run lifecycle with death/victory overlays.
+- **Boss**: "Warden of the First Floor" — 2-phase AI, arena, exit gating,
+  victory flow.
+- **HUD**: HP/weapon/room/Fury, ability cooldown bars, responsive at multiple
+  resolutions; mouse + keyboard reward selection.
+- **Elite enemies**: gold-tinted elite variant in combat test.
 
-- **Player**: WASD movement, 360-degree aim (mouse or arrows), attack, dodge with charges + i-frames.
-- **Combat**: attack hitbox, enemy damage, player damage, hitstun, death.
-- **Procedural stage**: 3 seeded floors (start → combat rooms → exit), deterministic per seed.
-- **Room encounters**: combat rooms spawn greybox dummies; clear all → 3-choice reward.
-- **Reward system**: data-driven buffs (damage, HP, speed, etc.), selectable via aim direction.
-- **Boss**: First Boss "Warden of the First Floor" — Phase 1 (slow sweep), Phase 2 (fast sweep + AoE shockwave), phase transition at 50% HP.
-- **Boss arena**: single-room boss floor after normal floors; exit blocked while boss alive.
-- **Run outcomes**: victory (→ green overlay → restart) or death (→ red overlay → restart).
-- **All tuning in data files** (YAML: enemies, rooms, stage config, attacks, rewards).
-
-### Full verification
+### Full verification (as of Phase 12)
 
 ```text
-pytest: 285 passed + 1 skip
-ruff: clean
-mypy: clean (122 files)
-data validation: OK
-headless 300-frame run: exit 0
+uv run pytest -q                                -> 332 passed, 1 skipped
+uv run ruff check src tests tools scripts       -> clean (0 errors)
+uv run python -m mypy src                       -> clean (129 files)
+uv run python tools/data_validation/validate_data.py -> OK
+uv run python scripts/run.py --headless --frames 300 --log-level WARNING -> exit 0
+uv run python scripts/run.py --headless --combat-test --frames 300 --log-level WARNING -> exit 0
 ```
 
-## What the next agent should do
+## What the next agent should do (Phases 11→15, in order)
 
-The next phase is **Build System**:
+Per IMPLEMENTATION_PLAN.md detailed sections (original numbering) and
+VERTICAL_SLICE.md §1/§4. Work phase by phase; do not skip ahead.
 
-1. Read RULES.md, STATUS.md, IMPLEMENTATION_PLAN.md, ARCHITECTURE.md.
-2. The Build System phase adds:
-   - In-run build choices (boon/ability selection during traversal)
-   - Passive/ability data architecture
-   - Integration with the existing reward system (reward → persistent build)
-   - Tools/weapons pipeline if applicable
-3. Follow the AI DEVELOPMENT LOOP (end of IMPLEMENTATION_PLAN.md).
-4. Run the five verification commands before finishing.
-5. Update STATUS.md, IMPLEMENTATION_PLAN.md, CHANGELOG.md.
-6. Commit and push.
+1. **Phase 11 — Village Framework**: `src/gameplay/village/` package, walkable
+   village scene, 3 building plots with 2 visual tiers each, Town Level +
+   building upgrade levels (L11/L12), application of run results
+   (trophy/material → tier increase), greybox village map.
+2. **Phase 12 — NPC Framework**: `src/gameplay/village/npc.py`, `data/npcs/`,
+   3 service NPCs (loadout / run prep / upgrades), one service-tier progression
+   track each, milestone-driven arrival (first boss kill), dialogue as data.
+3. **Phase 13 — Persistent Progression**: `src/gameplay/progression/`,
+   `data/unlocks/`, `data/progression/` — class mastery (L13), unlock engine
+   feeding reward pools, depth records, save/load persistence, all permanent
+   bonuses applied at run start (L15).
+4. **Phase 14 — Save/Load Integration**: wire persistent + run state into the
+   save manager (`src/save`), slot handling, D15 provisional policy (save at
+   village + run checkpoint at room transitions), corrupted-save handling,
+   full roundtrip tests.
+5. **Phase 15 — Vertical Slice Integration**: assemble the complete loop per
+   VERTICAL_SLICE.md §4: menu → village → prepare → dungeon (5 floors per L7:
+   4 generated + boss floor) → boss → death/return → village upgrade → NPC tier
+   up → new options next run → new run. Headless scripted full-run integration
+   test. **This is the playable product gate — STOP and report here.**
 
-## Key architecture constraints
+**Provisional defaults for open design decisions (RULES.md §0, DESIGN_DECISIONS.md §3):**
+- D3-detail: one hero, class-switching; meta-progression per class.
+- D7: keep current free-roam room-graph navigation.
+- D14: keep choice-of-3 boons.
+- D15: save at village + run checkpoint at room transitions.
+
+**Constraints:**
+- Greybox placeholders only (neutral names, tinted rects). No theme/lore/final
+  content. No balance tuning — sensible existing defaults only.
+- Data-driven (YAML), no magic values, adapter isolation (pygame only in
+  src/rendering/, src/input/, src/audio/), EventBus for cross-layer events.
+- Do NOT start Phases 16+ (content/polish/QA/release) — they are blocked on the
+  human playtest gate.
+
+## AI DEVELOPMENT LOOP (per IMPLEMENTATION_PLAN.md)
+
+REQUEST → CHECK RULES.md → CHECK DESIGN DOCUMENTS → CHECK EXISTING CODE →
+IDENTIFY AFFECTED FILES → EXPLAIN IMPLEMENTATION → IMPLEMENT → TEST → REPORT.
+
+## Completion discipline
+
+1. Run the five verification commands above before finishing each phase.
+2. Update STATUS.md, IMPLEMENTATION_PLAN.md snapshot, and CHANGELOG.md in the
+   same commit as the phase work.
+3. Commit meaningful milestones with conventional prefixes (feat:/fix:/test:/docs:/chore:).
+4. Push to remote.
+5. Final report must state: what is playable, controls, verification results,
+   deferred items — in Turkish, concise and practical.
+
+## Key architecture constraints (unchanged)
 
 - Python + pygame-ce remain the framework.
 - Hybrid component-based architecture stays.
 - Data-driven YAML architecture stays.
-- 360-degree free aim remains.
-- Dodge charges + i-frames remain.
+- 360-degree free aim remains. Dodge charges + i-frames remain.
 - Warrior is the first class (Ranger/Mage are future).
 - Framework isolation rules remain.
-- Do NOT add final art, full village progression, full inventory, or lock unresolved design decisions.
-
-## Files created/modified in Phase 8
-
-**Created:**
-- `src/gameplay/bosses/boss_ai.py` — BossAI with 2-phase combat
-- `data/enemies/bosses/first_boss.yaml` — Boss config
-- `data/world/rooms/greybox_boss_arena.yaml` — Boss arena room
-- `data/combat/attacks/boss_primary.yaml` — Phase 1 attack
-- `data/combat/attacks/boss_primary_fast.yaml` — Phase 2 primary attack
-- `data/combat/attacks/boss_aoe.yaml` — AoE shockwave attack
-
-**Modified:**
-- `src/gameplay/playtest_scene.py` — Boss integration, encounter blocking, victory/death overlays
-- `src/gameplay/enemies/enemy_factory.py` — build_boss() function
-- `src/world/stage_generator.py` — Boss floor appending
-- `src/world/floor_assembler.py` — Boss kind → boss arena template
-- `tests/unit/test_stage_generation.py` — Updated for boss floor
-- `tests/integration/gameplay/test_stage_traversal.py` — 3 new boss tests
-
-## Deliverable for the next agent
-
-- A clean, working vertical slice with boss.
-- All verification green.
-- Updated documentation.
-- Ready for Build System phase.

@@ -10,6 +10,18 @@
 
 ## CURRENT STATUS SNAPSHOT
 
+> **Update (2026-08-01):** the snapshot below was refreshed after Phase 12 —
+> Developer Experience & Damage Formula — was completed (2026-07-29, suite 332
+> passed + 1 skip). The remaining roadmap to a **playable product** is
+> **Phases 11→15** (original numbering in the detailed sections below):
+> **Village Framework (11), NPC Framework (12), Persistent Progression (13),
+> Save/Load Integration (14), Vertical Slice Integration (15)**. Phases 16+ are
+> content/balance/polish and require the game to be playable first (RULES.md §0).
+> NOTE: the phase numbering in the historical snapshot below uses the old
+> ordering (the "Phase 12 — CONTENT EXPANSION" line predates the 2026-07-29
+> Developer Experience phase); the detailed phase sections below are
+> authoritative for what each remaining phase contains.
+
 - **Phase 0 — COMPLETE.**
 - **Phase 1 — COMPLETE (verified 2026-07-27):** 57 tests + 1 intentional skip · data validation OK · bootstrap exit 0 · ruff/mypy clean.
 - **Framework DECIDED (2026-07-27): pygame-ce** (docs/development/FRAMEWORK_EVALUATION.md). Design core **LOCKED**: docs/design/DESIGN_DECISIONS.md (L1-L16).
@@ -25,7 +37,14 @@
 - **Phase 9 — COMPLETE (2026-07-28):** Build System Foundation — BuildState, weapons (sword/spear/axe), boons (11 prototype), tag-based modifiers, ability/passive data architecture, reward→build pipeline, weapon changes attack behavior. Suite: **301 passed + 1 skip**.
 - **Phase 10 — COMPLETE (2026-07-28):** Build System Integration — Ability executors wired into Player (Q/E/R/T slots), ability activation from input layer, passive modifier effects applied to BuildState, class loadout system (Warrior with weapon/abilities/passives), run weapon upgrades, expanded reward pipeline for ability/passive/upgrade acquisition, build persistence across room/floor transitions. Suite: **306 passed + 1 skip**. Details: CHANGELOG.md, STATUS.md.
 - **Phase 11 — COMPLETE (2026-07-28):** Stabilization & Readability — Full system audit (GREYBOX_AUDIT.md), collision-aware knockback, damage numbers, enemy damage flash, improved HUD with text labels for weapon/room/Fury/abilities, multi-hit prevention (0.05s hit_invuln), 360-degree attack verification tests, Shield Bash radial knockback/buff effects, text rendering in Renderer, fixed encounter overwrite bug, fixed reward re-offer loop, fixed restart loadout re-application. Suite: **309 passed + 1 skip**. Details: CHANGELOG.md.
-- **Next phase: Phase 12 — CONTENT EXPANSION** (after Phase 11 complete).
+- **Phase 12 — COMPLETE (2026-07-29):** Developer Experience & Damage Formula — centralized `damage_formula.py`, ability coefficients, BuildState multipliers actually applied, mouse hover/click reward selection, passive descriptions in HUD, responsive HUD layout, combat playground with elite dummies (F=heal, Esc=respawn), elite enemy type, reward direction indicator fixes. Suite: **332 passed + 1 skip**. Details: CHANGELOG.md, STATUS.md.
+- **Next phases (per RULES.md §0 standing directive — AUTONOMOUS COMPLETION RUN):**
+  - **Phase 11 — VILLAGE FRAMEWORK** (detailed section below; original numbering)
+  - **Phase 12 — NPC FRAMEWORK**
+  - **Phase 13 — PERSISTENT PROGRESSION**
+  - **Phase 14 — SAVE / LOAD INTEGRATION**
+  - **Phase 15 — VERTICAL SLICE INTEGRATION** → playable product gate (VERTICAL_SLICE.md §4)
+  - Phases 16+ (Content Expansion, Polish, Optimization, QA, Release) are **blocked on human playtest + design approvals** — do NOT start them in this run.
 
 ---
 
