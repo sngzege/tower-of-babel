@@ -137,8 +137,11 @@ class CombatSystem:
                 result = self.pipeline.apply(damage, entity.damage_target)
 
                 # Prevent multi-hit from the same attack across frames.
+                # The invuln window is per-instance: the owner set it to at
+                # least its own active window, so one attack can only
+                # connect once per target (Phase audit fix 2026-08-01).
                 if result.dealt > 0 and entity.invuln_service is not None:
-                    entity.invuln_service.add("hit_invuln", 0.05)
+                    entity.invuln_service.add("hit_invuln", damage.hit_invuln)
 
                 hits.append(
                     ResolvedHit(

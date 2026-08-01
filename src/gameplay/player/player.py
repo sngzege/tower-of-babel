@@ -64,6 +64,11 @@ class Player:
         attack_data: AttackData | None = None,
     ) -> None:
         self.stats = stats
+        # Pristine base stats (never mutated by build application). Build
+        # modifiers are recomputed from this each time, so re-applying a
+        # build is idempotent (audit fix 2026-08-01: max HP used to grow
+        # +25 every room transition).
+        self.base_stats = stats
         self._events = events
         self.entity = Entity(name="player")
         self.body = self.entity.add(

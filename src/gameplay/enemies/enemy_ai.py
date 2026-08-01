@@ -80,7 +80,14 @@ class SimpleAI:
 
         # Check if attack is ready.
         attack_ready = self.enemy.attack_executor.can_trigger()
-        in_attack_range = dist <= self.enemy.config.attack_ideal_range
+        # Cap the engage distance by the hitbox reach so the attack can
+        # actually land (ideal_range may exceed reach — whiffing attacks
+        # made enemies harmless; audit fix 2026-08-01).
+        max_engage = min(
+            self.enemy.config.attack_ideal_range,
+            self.enemy.config.attack_hitbox_reach,
+        )
+        in_attack_range = dist <= max_engage
 
         if attack_ready and in_attack_range:
             # Start attacking.
@@ -91,8 +98,10 @@ class SimpleAI:
             return
 
         if self._state is AIState.ATTACK:
-            # Mid-attack: don't move, let executor advance.
-            self.enemy.attack_executor.update(dt)
+            # Mid-attack: don't move; the attack executor is advanced by
+            # Enemy.update() (the scene calls both). Advancing it here too
+            # would run the attack lifecycle at 2x speed (audit fix
+            # 2026-08-01).
             self.enemy.body.vx = 0.0
             self.enemy.body.vy = 0.0
             # Attack finished → resume chasing.

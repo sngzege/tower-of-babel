@@ -24,12 +24,16 @@ class DamageInstance:
     ``source_layer`` is the CollisionLayer of the originating hitbox.
     ``knockback`` is the push direction/force applied to the target ((0,0)=none).
     ``status_tags`` are status effects to apply on hit.
+    ``hit_invuln`` is how long the target becomes invulnerable after this hit
+    (multi-hit prevention). The owner sets it to at least its own active
+    window so ONE attack connects at most once per target.
     """
     value: float
     types: frozenset[str] = frozenset()
     source_layer: str = ""
     knockback: tuple[float, float] = (0.0, 0.0)
     status_tags: frozenset[str] = frozenset()
+    hit_invuln: float = 0.05
 
 
 @dataclass(frozen=True)

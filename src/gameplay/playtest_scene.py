@@ -154,6 +154,9 @@ class PlaytestScene(Scene):
 
         # Phase 9: weapon choice on first room clear.
         self._pending_weapon_choice: list[str] = []
+        # Passives already folded into BuildState (prevents double-apply;
+        # audit fix 2026-08-01: hardy was stacking +25 HP per call).
+        self._applied_passive_ids: set[str] = set()
 
         # Phase 10: class loadout.
         self._apply_class_loadout("warrior")
@@ -303,11 +306,18 @@ class PlaytestScene(Scene):
                 _logger.warning("Failed to load ability '%s': %s", ability_id, exc)
 
     def _apply_passives_to_player(self) -> None:
-        """Apply passive modifiers from BuildState."""
+        """Apply passive modifiers from BuildState (once per passive).
+
+        ``_applied_passive_ids`` tracks which passives have already been
+        folded into the build so repeated calls (room transitions, restart,
+        loadout re-apply) do not stack the same bonus again.
+        """
         if self._registry is None:
             return
         build = self._run.build
         for pid in build.passive_ids:
+            if pid in self._applied_passive_ids:
+                continue
             try:
                 doc = self._registry.get("passives", pid)
                 from gameplay.builds.passive import PassiveData
@@ -328,27 +338,36 @@ class PlaytestScene(Scene):
                         build.apply_passive_modifier(
                             mod.stat, mod.value, mod.is_percent, tag_str
                         )
+                self._applied_passive_ids.add(pid)
             except Exception as exc:
                 _logger.warning("Failed to apply passive '%s': %s", pid, exc)
 
     def _apply_build_to_player(self) -> None:
-        """Apply current BuildState modifiers to the player."""
-        build = self._run.build
+        """Apply current BuildState modifiers to the player (idempotent).
 
-        # Apply move speed.
-        base_speed = self.player.stats.move_speed
+        All modifiers are recomputed from the pristine base stats, so
+        calling this repeatedly (room transitions, restarts) never stacks
+        bonuses (audit fix 2026-08-01: max HP grew +25 every transition).
+        """
+        build = self._run.build
+        base = self.player.base_stats
+
+        old_max = self.player.stats.max_health
+        new_max = base.max_health + build.max_health_bonus
+
+        # Apply move speed + max health from pristine base in one shot.
         self.player.stats = self._patch_stats(  # type: ignore[assignment]
             self.player.stats,
-            move_speed=build.total_speed_for(base_speed),
+            move_speed=build.total_speed_for(base.move_speed),
+            max_health=new_max,
         )
 
-        # Apply max health bonus.
-        if build.max_health_bonus > 0:
-            self.player.stats = self._patch_stats(  # type: ignore[assignment]
-                self.player.stats,
-                max_health=self.player.stats.max_health + build.max_health_bonus,
-            )
-            self.player.health += build.max_health_bonus
+        # Heal only by the delta applied this call (0 on repeat calls).
+        delta = new_max - old_max
+        if delta > 0:
+            self.player.health = min(self.player.health + delta, new_max)
+        elif delta < 0 and self.player.health > new_max:
+            self.player.health = new_max
 
     def _patch_stats(self, stats: object, **kwargs: object) -> object:
         from dataclasses import replace  # noqa: F811
@@ -439,6 +458,8 @@ class PlaytestScene(Scene):
     def _restart_run(self) -> None:
         self.player.reset()
         self._run.reset()
+        # Passives must be re-folded into the fresh build exactly once.
+        self._applied_passive_ids.clear()
         # Re-apply class loadout after reset.
         self._apply_class_loadout("warrior")
         self._pending_buffs.clear()
@@ -504,6 +525,9 @@ class PlaytestScene(Scene):
         # Reset the player first so build re-application below starts from
         # base stats (no double-counting of passive bonuses on health).
         self.player.reset()
+        # A restored build's cached modifiers are not serialized, so
+        # passives must be folded in fresh (audit fix 2026-08-01).
+        self._applied_passive_ids.clear()
         # Restore build.
         self._run.build = checkpoint.build
         # Position inside the floor: find the checkpointed room.
@@ -722,6 +746,7 @@ class PlaytestScene(Scene):
                     value=self._boss.attack_executor.data.damage,
                     types=self._boss.attack_executor.data.damage_types,
                     source_layer=self._boss.attack_executor.data.layer,
+                    hit_invuln=self._boss.attack_executor.data.active + 0.05,
                 ),
             ))
         return results
@@ -739,6 +764,7 @@ class PlaytestScene(Scene):
                         value=enemy.attack_executor.data.damage,
                         types=enemy.attack_executor.data.damage_types,
                         source_layer=enemy.attack_executor.data.layer,
+                        hit_invuln=enemy.attack_executor.data.active + 0.05,
                     ),
                 ))
         return results
@@ -825,15 +851,18 @@ class PlaytestScene(Scene):
                     self._temp_ability_hitbox = (
                         AABB(px + fx * distance * 0.3 - 20.0,
                              py + fy * distance * 0.3 - 12.0, 40.0, 24.0),
-                        DamageInstance(value=dmg, types=dmg_types, source_layer="player_hitbox",
-                                       knockback=(fx * 200.0, fy * 200.0)),
+                        DamageInstance(
+                            value=dmg, types=dmg_types,
+                            source_layer="player_hitbox", hit_invuln=0.3,
+                            knockback=(fx * 200.0, fy * 200.0),
+                        ),
                     )
             elif etype == "aoe":
                 range_val = float(effect.get("range", 60.0))
                 if dmg > 0:
                     self._temp_ability_hitbox = (
                         AABB(px - range_val, py - range_val, range_val * 2, range_val * 2),
-                        DamageInstance(value=dmg, types=frozenset(effect.get("damage_types", ["physical"])), source_layer="player_hitbox"),  # noqa: E501
+                        DamageInstance(value=dmg, types=frozenset(effect.get("damage_types", ["physical"])), source_layer="player_hitbox", hit_invuln=0.3),  # noqa: E501
                     )
             elif etype == "knockback":
                 range_val = float(effect.get("range", 60.0))
@@ -841,7 +870,7 @@ class PlaytestScene(Scene):
                     # Radial outward knockback from player position.
                     self._temp_ability_hitbox = (
                         AABB(px - range_val, py - range_val, range_val * 2, range_val * 2),
-                        DamageInstance(value=dmg, types=frozenset(effect.get("damage_types", ["physical"])), source_layer="player_hitbox",  # noqa: E501
+                        DamageInstance(value=dmg, types=frozenset(effect.get("damage_types", ["physical"])), source_layer="player_hitbox", hit_invuln=0.3,  # noqa: E501
                                        knockback=(0.0, 0.0)),  # radial — computed per-target in hit resolution  # noqa: E501
                     )
                     self._temp_knockback_origin = (px, py)
@@ -1001,6 +1030,7 @@ class PlaytestScene(Scene):
                         value=final_dmg,
                         types=self.player.attack_executor.data.damage_types,
                         source_layer=self.player.attack_executor.data.layer,
+                        hit_invuln=self.player.attack_executor.data.active + 0.05,
                     ),
                 ))
 

@@ -120,7 +120,9 @@ class BossAI:
             self.aoe.update(dt)
             self._aoe_cooldown_timer = max(0.0, self._aoe_cooldown_timer - dt)
 
-        # Attack decision.
+        # Attack decision. Engage distances are capped by each attack's
+        # hitbox reach so attacks can actually land (audit fix 2026-08-01:
+        # boss used a fixed 70px range while its hitbox only reached 48).
         primary_ready = self.primary.can_trigger()
         aoe_ready = (
             self.aoe is not None
@@ -129,8 +131,11 @@ class BossAI:
             and self.phase is BossPhase.PHASE_2
         )
 
-        in_attack_range = dist <= 70.0
-        if aoe_ready and in_attack_range:
+        primary_range = self.primary.data.hitbox_reach
+        aoe_range = self.aoe.data.hitbox_reach if self.aoe is not None else 0.0
+        in_primary_range = dist <= primary_range
+        in_aoe_range = dist <= aoe_range
+        if aoe_ready and in_aoe_range:
             # Fire AoE shockwave.
             assert self.aoe is not None  # aoe_ready implies this
             self.aoe.trigger()
@@ -139,17 +144,20 @@ class BossAI:
             self.enemy.body.vy = 0.0
             return
 
-        if primary_ready and in_attack_range:
+        if primary_ready and in_primary_range:
             self.primary.trigger()
             self.enemy.body.vx = 0.0
             self.enemy.body.vy = 0.0
             return
 
-        # Movement.
-        if dist > 70.0:
+        # Movement. The back-up threshold (20px) leaves the boss inside
+        # melee reach (shortest weapon 32px) so every weapon can connect;
+        # the old 30px threshold made the boss perpetually kite away from
+        # short-range builds (audit fix 2026-08-01).
+        if dist > primary_range:
             self.enemy.body.vx = ndx * speed
             self.enemy.body.vy = ndy * speed
-        elif dist < 30.0:
+        elif dist < 20.0:
             self.enemy.body.vx = -ndx * speed * 0.5
             self.enemy.body.vy = -ndy * speed * 0.5
         else:

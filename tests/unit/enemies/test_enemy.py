@@ -180,9 +180,20 @@ class TestSimpleAI:
         # Trigger attack.
         ai.update(player_x=220.0, player_y=200.0, dt=0.016)
         assert ai.state is AIState.ATTACK
-        # Run enough frames for attack to complete.
-        for _ in range(120):  # 120 frames at dt=0.016 = ~2s
+        # The attack executor is advanced by Enemy.update() (the scene
+        # calls ai.update + enemy.update each frame). After the attack
+        # completes while the player is still in range, the AI attacks
+        # again; once the player leaves range it resumes chasing.
+        for _ in range(240):  # 240 frames at dt=0.016 = ~4s
+            dummy_enemy.update(0.016)
             ai.update(player_x=220.0, player_y=200.0, dt=0.016)
+            if ai.state is AIState.CHASE:
+                break
+        # Player still close → enemy keeps attacking (never CHASE).
+        # Move the player far away → AI must resume chasing.
+        for _ in range(30):
+            dummy_enemy.update(0.016)
+            ai.update(player_x=400.0, player_y=200.0, dt=0.016)
             if ai.state is AIState.CHASE:
                 break
         assert ai.state is AIState.CHASE
