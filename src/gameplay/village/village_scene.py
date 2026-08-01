@@ -39,7 +39,7 @@ _logger = get_logger(__name__)
 
 _FLOOR_COLOR: Color = (26, 30, 26)
 _GRASS_COLOR: Color = (34, 44, 34)
-_WALL_COLOR: Color = (80, 80, 96)
+_WALL_COLOR: Color = (24, 28, 48)  # dark Babylon stone
 _PLOT_COLOR: Color = (70, 70, 80)
 _TIER1_COLOR: Color = (70, 130, 200)
 _BUILDING_FRAME: Color = (20, 20, 28)
@@ -211,8 +211,8 @@ class VillageScene(Scene):
     # -- Render --
 
     def render(self, renderer: Renderer) -> None:
-        # Grass/floor tiles.
-        tile = 16
+        # Grass/floor tiles (32x32 sprite).
+        tile = 32
         tw, th = self.room.width, self.room.height
         for ty in range(0, int(th), tile):
             for tx in range(0, int(tw), tile):

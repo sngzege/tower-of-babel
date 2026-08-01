@@ -54,7 +54,7 @@ from world.stage_manager import StageManager
 _logger = get_logger(__name__)
 
 _FLOOR_COLOR: Color = (34, 34, 40)
-_WALL_COLOR: Color = (92, 92, 112)
+_WALL_COLOR: Color = (24, 28, 48)  # dark Babylon stone (was bright grey box)
 _ATTACK_HITBOX_COLOR: Color = (255, 120, 50)
 _ENEMY_COLOR: Color = (200, 60, 60)
 _ELITE_COLOR: Color = (200, 160, 40)
@@ -1230,8 +1230,8 @@ class PlaytestScene(Scene):
 
     def render(self, renderer: Renderer) -> None:
         self._screen_h = renderer.size[1]
-        # Floor tiles (16x16 grid, night base).
-        tile = 16
+        # Floor tiles (32x32 sprite, night stone texture).
+        tile = 32
         tw, th = self.room.width, self.room.height
         for ty in range(0, int(th), tile):
             for tx in range(0, int(tw), tile):
@@ -1271,9 +1271,8 @@ class PlaytestScene(Scene):
                 renderer.draw_rect((
                     int(sx), int(sy),
                     int(enemy.body.width * scale), int(enemy.body.height * scale),
-                ), (255, 255, 255, 120) if False else (255, 255, 255))
-            ha = enemy.hurtbox.box_at(enemy.body.x, enemy.body.y)
-            renderer.draw_rect(self.camera.screen_rect(ha), _ENEMY_HURTBOX_ALPHA)
+                ), (255, 255, 255))
+            # Slim health bar above the sprite (no box outlines).
             ratio = enemy.health / enemy.config.max_health
             bx = enemy.body.x - _HEALTH_BAR_WIDTH / 2.0
             by = enemy.body.y - _HEALTH_BAR_ENEMY_Y_OFFSET
@@ -1282,9 +1281,6 @@ class PlaytestScene(Scene):
             if ratio > 0.0:
                 fg = AABB(bx, by, _HEALTH_BAR_WIDTH * ratio, _HEALTH_BAR_HEIGHT)
                 renderer.draw_rect(self.camera.screen_rect(fg), _HEALTH_BAR_FG)
-            eha = enemy.hitbox_aabb
-            if eha is not None:
-                renderer.draw_rect(self.camera.screen_rect(eha), _ENEMY_ATTACK_COLOR)
 
         # Boss.
         if self._boss is not None and self._boss.alive:
@@ -1294,8 +1290,6 @@ class PlaytestScene(Scene):
             )
             scale = max(1, int(self.camera.zoom))
             renderer.draw_image("boss", int(bx_), int(by_), scale=scale)
-            ha = self._boss.hurtbox.box_at(self._boss.body.x, self._boss.body.y)
-            renderer.draw_rect(self.camera.screen_rect(ha), _BOSS_HURTBOX_COLOR)
             ratio = self._boss.health / self._boss.config.max_health
             bx = self._boss.body.x - _BOSS_HEALTH_BAR_WIDTH / 2.0
             by = self._boss.body.y - _BOSS_HEALTH_BAR_Y_OFFSET
@@ -1310,22 +1304,22 @@ class PlaytestScene(Scene):
                     phase_color = _PHASE_2_COLOR
                 dot = AABB(bx - 12, by, 6, _BOSS_HEALTH_BAR_HEIGHT)
                 renderer.draw_rect(self.camera.screen_rect(dot), phase_color)
-            if self._boss_ai is not None:
-                hb = self._boss_ai.get_hitbox_aabb()
-                if hb is not None:
-                    renderer.draw_rect(self.camera.screen_rect(hb), _BOSS_ATTACK_COLOR)
 
         # Player.
         px, py = self.player.body.x, self.player.body.y
         pw, ph = self.player.body.width, self.player.body.height
         # Draw the pixel-art sprite centered on the body, feet at box bottom.
-        psx, psy = self.camera.world_to_screen(px - pw / 2, py - ph / 2)
-        scale = max(1, int(self.camera.zoom))
-        renderer.draw_image("player", int(psx), int(psy), scale=scale)
+        # Sprite source is 32x32; scale so its width matches the body width.
+        sprite_scale = max(1, int(round(pw / 32 * self.camera.zoom)))
+        psx, psy = self.camera.world_to_screen(
+            px - pw / 2, py - ph * 0.9
+        )
+        renderer.draw_image("player", int(psx), int(psy), scale=sprite_scale)
         if self.player.invulnerable:
             # Dodge i-frames: bright outline so invulnerability stays readable.
             renderer.draw_rect((int(psx) - 1, int(psy) - 1,
-                                int(pw * scale) + 2, int(ph * scale) + 2),
+                                int(pw * sprite_scale / 2) + 2,
+                                int(ph * 1.8 * sprite_scale / 2) + 2),
                                (255, 255, 255))
 
         # Facing arrow: 3 stacked rectangles forming a directional arrow.
@@ -1353,14 +1347,9 @@ class PlaytestScene(Scene):
                 sx, sy = self.camera.world_to_screen(tx, ty)
                 renderer.draw_rect((sx, sy, ts * screen_scale, ts * screen_scale), trail_color)
 
-        # Attack hitbox visualization (debug).
-        if self.player.attack_executor.hitbox_active():
-            ax, ay = self.player.aim_vector
-            hb = self.player.attack_executor.hitbox_for(
-                self.player.body.x, self.player.body.y, facing_x=ax, facing_y=ay,
-            )
-            if hb is not None:
-                renderer.draw_rect(self.camera.screen_rect(hb), _ATTACK_HITBOX_COLOR)
+        # Attack hitbox visualization removed — sprite slash reads clearly.
+        # (Debug overlays are gone from the playable build; keep the world
+        # clean for the dark-fantasy look.)
 
         # Damage numbers (world → screen).
         for dn in self._damage_numbers:
