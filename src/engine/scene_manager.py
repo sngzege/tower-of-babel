@@ -29,6 +29,21 @@ class SceneManager:
             raise ValueError(f"Scene already registered: {scene.scene_id}")
         self._scenes[scene.scene_id] = scene
 
+    def replace(self, scene: Scene) -> None:
+        """Register or swap a scene with the same id (Phase 15: fresh run scenes).
+
+        Used when a scene instance must be rebuilt (e.g. a new dungeon run)
+        without restarting the app. If the replaced scene is active, its
+        ``enter`` is called so the new instance is ready immediately.
+        """
+        was_active = self._active is scene or (
+            self._active is not None and self._active.scene_id is scene.scene_id
+        )
+        self._scenes[scene.scene_id] = scene
+        if was_active:
+            self._active = scene
+            scene.enter()
+
     def switch_to(self, scene_id: SceneID) -> None:
         if scene_id not in self._scenes:
             raise KeyError(f"Unknown scene: {scene_id}")

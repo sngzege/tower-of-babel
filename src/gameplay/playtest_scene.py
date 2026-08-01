@@ -18,6 +18,7 @@ Phase 9 adds:
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 
 from core.content_registry import ContentRegistry
 from core.enums import SceneID
@@ -41,7 +42,7 @@ from gameplay.player.aim_controller import AimController
 from gameplay.player.player import Player
 from gameplay.player.player_controller import PlayerController
 from gameplay.player.player_state import PlayerState
-from gameplay.roguelike.run import RunManager
+from gameplay.roguelike.run import RunManager, RunResult
 from input.input_manager import Action, ActionFrame
 from physics.collision import AABB, CollisionWorld
 from rendering.camera import Camera
@@ -113,6 +114,9 @@ class PlaytestScene(Scene):
         stage_manager: StageManager | None = None,
         enemies: list[tuple[Enemy, SimpleAI]] | None = None,
         controller: PlayerController | None = None,
+        persistent: object | None = None,
+        on_run_finished: Callable[[RunResult], None] | None = None,
+        on_checkpoint: Callable[[dict], None] | None = None,
     ) -> None:
         self.player = player
         self.room = room
@@ -126,6 +130,15 @@ class PlaytestScene(Scene):
         self._boss: Enemy | None = None
         self._boss_ai: BossAI | None = None
         self.stage_completed = False
+
+        # Phase 15: meta-game wiring (optional; None keeps legacy behaviour).
+        self._persistent = persistent
+        self._on_run_finished = on_run_finished
+        self._on_checkpoint = on_checkpoint
+        self._run_result: RunResult | None = None
+        self._finished_called = False
+        self._unlocked_boons: list[str] = []
+        self._restored_checkpoint: object | None = None
 
         self._stage_manager = stage_manager
         if stage_manager is not None:
@@ -378,6 +391,9 @@ class PlaytestScene(Scene):
         if new_room.kind == "boss":
             self._run.start_boss()
 
+        # Phase 14/15: D15 checkpoint at room transitions.
+        self._emit_checkpoint()
+
     def _on_stage_complete(self) -> None:
         self.stage_completed = True
         _logger.info("Stage complete!")
@@ -451,6 +467,104 @@ class PlaytestScene(Scene):
         self._reward_offered_in_room = False
         self.stage_completed = False
         self._pending_buffs.clear()
+        self._run_result = None
+        self._finished_called = False
+
+    # -- Phase 15: meta-game integration --
+
+    def begin_run(self, seed: int | str = 42) -> None:
+        """Start the run lifecycle (NOT_STARTED → ACTIVE)."""
+        self._run.start(seed)
+
+    def apply_run_start_bonuses(self, persistent: object) -> None:
+        """L15: apply permanent bonuses + unlocked boons to the fresh run."""
+        from gameplay.progression.meta_progression import MetaProgression
+
+        if not isinstance(persistent, MetaProgression):
+            progression = getattr(persistent, "progression", None)
+        else:
+            progression = persistent
+        if progression is None:
+            return
+        # Permanent mastery bonuses (L13) applied to BuildState.
+        progression.apply_run_start_bonuses(self._run.build, class_id="warrior")
+        self._apply_build_to_player()
+        # Unlocked boons join the reward pool on this run.
+        self._unlocked_boons = list(progression.granted_boons())
+        if self._unlocked_boons:
+            _logger.info("Run-start unlocked boons: %s", self._unlocked_boons)
+
+    def restore_checkpoint(self, checkpoint: object) -> None:
+        """D15: resume a mid-run checkpoint (floor/room/build/health)."""
+        from gameplay.run_checkpoint import RunCheckpoint
+
+        if not isinstance(checkpoint, RunCheckpoint):
+            raise TypeError("restore_checkpoint expects a RunCheckpoint")
+        self._restored_checkpoint = checkpoint
+        # Reset the player first so build re-application below starts from
+        # base stats (no double-counting of passive bonuses on health).
+        self.player.reset()
+        # Restore build.
+        self._run.build = checkpoint.build
+        # Position inside the floor: find the checkpointed room.
+        if self._stage_manager is not None:
+            floor = self._stage_manager.current_floor
+            room = floor.rooms.get(checkpoint.room_id)
+            if room is not None:
+                self.room = room
+                self.world = room.build_collision_world()
+                self.player.body.teleport(*room.player_spawn)
+                self.camera.center_on(*room.player_spawn)
+                self.camera.set_bounds(self.room.bounds)
+                self._spawn_room_enemies()
+        # Re-apply everything from the restored build, THEN set health so
+        # the checkpoint health is authoritative (D15).
+        self._reapply_weapon()
+        self._apply_abilities_to_player()
+        self._apply_passives_to_player()
+        self._apply_build_to_player()
+        self.player.health = checkpoint.player_health
+        # Mark the run active.
+        from gameplay.roguelike.run import RunPhase
+
+        self._run.state.phase = RunPhase.ACTIVE
+        _logger.info(
+            "Checkpoint restored: floor %d room %s (phase %s)",
+            checkpoint.floor_index, checkpoint.room_id, checkpoint.phase,
+        )
+
+    def _finish_run(self) -> None:
+        """Apply run results to persistent state once, then notify."""
+        if self._finished_called:
+            return
+        self._finished_called = True
+        if self._persistent is not None and self._run_result is not None:
+            apply = getattr(self._persistent, "apply_run_result", None)
+            if callable(apply):
+                apply(self._run_result)
+                _logger.info(
+                    "Run result applied: victory=%s depth=%d relics=%d",
+                    self._run_result.victory,
+                    self._run_result.depth_reached,
+                    self._run_result.relics_earned,
+                )
+        if self._on_run_finished is not None and self._run_result is not None:
+            self._on_run_finished(self._run_result)
+
+    def _emit_checkpoint(self) -> None:
+        """Emit a run checkpoint at a room transition (D15)."""
+        if self._on_checkpoint is None or self._stage_manager is None:
+            return
+        from gameplay.run_checkpoint import build_checkpoint
+
+        checkpoint = build_checkpoint(
+            phase=self._run.state.phase.value,
+            floor_index=self._stage_manager.floor_index,
+            room_id=self.room.room_id,
+            player_health=self.player.health,
+            build=self._run.build,
+        )
+        self._on_checkpoint(checkpoint)
 
     def _respawn_arena_enemies(self) -> None:
         """Respawn all dead enemies in combat test mode."""
@@ -565,13 +679,23 @@ class PlaytestScene(Scene):
         return -1
 
     def _generate_boon_options(self, count: int = 3) -> list[BoonData]:
-        """Generate random boon options from registry."""
+        """Generate random boon options from registry (+ unlocked boons)."""
         if self._registry is None:
             return []
         try:
             all_boons = self._registry.all("boons")
             if not all_boons:
                 return []
+            # Phase 13/15: boons granted by earned unlocks join the pool.
+            if self._unlocked_boons:
+                known_ids = {doc.get("id") for doc in all_boons}
+                for boon_id in self._unlocked_boons:
+                    if boon_id in known_ids:
+                        continue
+                    try:
+                        all_boons.append(self._registry.get("boons", boon_id))
+                    except Exception:
+                        pass
             selected = random.sample(all_boons, min(count, len(all_boons)))
             return [BoonData.from_document(doc) for doc in selected]
         except Exception:
@@ -790,6 +914,12 @@ class PlaytestScene(Scene):
                 _logger.info("Combat test: enemies respawned")
 
         if self._run.ended:
+            # Phase 15: in the full loop, finishing a run returns to the
+            # village (results applied once). Legacy/combat-test mode
+            # restarts in place on attack.
+            if self._on_run_finished is not None:
+                self._finish_run()
+                return
             if Action.PRIMARY_ATTACK in frame.pressed:
                 self._restart_run()
             return
@@ -935,7 +1065,7 @@ class PlaytestScene(Scene):
                     self.player.on_hit(0.15)
                     if self.player.health <= 0.0:
                         self.player.die()
-                        self._run.on_death()
+                        self._run_result = self._run.on_death()
 
         # Room cleared → reward or weapon choice.
         if self._encounter.cleared and not self._reward_pending and self._boss is None and not self._reward_offered_in_room:  # noqa: E501
@@ -957,10 +1087,10 @@ class PlaytestScene(Scene):
             self._on_stage_complete()
 
         if self.player.state is PlayerState.DEAD and not self._run.ended:
-            self._run.on_death()
+            self._run_result = self._run.on_death()
 
         if self.stage_completed and not self._run.ended:
-            self._run.on_victory()
+            self._run_result = self._run.on_victory()
 
         if self._stage_manager is not None and not self._reward_pending and not self._is_boss_active():  # noqa: E501
             door = self._stage_manager.check_transition(self.player.body.box)

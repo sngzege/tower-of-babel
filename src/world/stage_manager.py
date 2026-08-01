@@ -72,6 +72,21 @@ class StageManager:
         self.stage_complete = False
         return self._room_manager.load_floor(self.current_floor)
 
+    def resume_at(self, floor_index: int) -> Room:
+        """Load a specific floor (mid-run checkpoint restore, Phase 14/15).
+
+        The room-level position inside the floor is restored by the scene
+        (it owns the player/camera); this only re-positions the floor.
+        """
+        if floor_index < 0 or floor_index >= len(self.stage_data.floors):
+            raise IndexError(
+                f"floor index {floor_index} out of range "
+                f"(0..{len(self.stage_data.floors) - 1})"
+            )
+        self.floor_index = floor_index
+        self.stage_complete = False
+        return self._room_manager.load_floor(self.current_floor)
+
     # -- Transitions --
 
     def check_transition(self, player_box: AABB) -> Door | None:

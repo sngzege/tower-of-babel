@@ -1,11 +1,12 @@
 # First Stage (Greybox) — Phase 7 procedural generation.
 # This is a PROVISIONAL placeholder for development purposes only.
 # Not a balance or content decision.
+# L7 (VERTICAL_SLICE.md): 5 floors per stage — 4 generated + boss floor.
 id: first_stage
 name: First Stage (Greybox)
 index: 0
 floors:
-  count: 3
+  count: 4
   min_rooms: 4
   max_rooms: 7
   # Spine-only greybox floors: side branches need templates with more door

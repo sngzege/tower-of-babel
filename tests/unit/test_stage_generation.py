@@ -99,7 +99,7 @@ def test_first_stage_document_loads(
 ) -> None:
     """first_stage.yaml parses into the expected configuration."""
     assert stage_config.stage_id == "first_stage"
-    assert stage_config.floor_count == 3
+    assert stage_config.floor_count == 4
     assert stage_config.min_rooms == 4
     assert stage_config.max_rooms == 7
     assert stage_config.branch_chance == 0.0
@@ -152,7 +152,7 @@ def test_generate_stage_creates_configured_floor_count(
 ) -> None:
     """generate_stage adds one boss floor, so total = config.floor_count + 1."""
     stage = generate_stage(stage_config, registry, seed=42)
-    assert stage.floor_count == stage_config.floor_count + 1 == 4
+    assert stage.floor_count == stage_config.floor_count + 1 == 5
 
 
 def test_floor_room_counts_within_stage_bounds(

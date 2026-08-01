@@ -1,4 +1,4 @@
-"""Village scene: walkable greybox hub (Phase 11).
+"""Village scene: walkable greybox hub (Phase 11 + 15).
 
 The village is a real walkable space (not a menu): the player moves through
 a Room built from data/world/rooms/greybox_village.yaml, and each building
@@ -7,10 +7,17 @@ visual (plot -> tier1 tint) and functional (services/NPCs arrive in later
 phases). Interacting (INTERACT/F) with a building attempts its next upgrade
 and reports the result on screen.
 
+Phase 15 additions:
+  - NPCs are rendered near their building (arrived ones only) and F talks
+    to the nearest NPC (service dialogue + run_prep heal).
+  - The bottom-center gate starts a run (on_enter_dungeon callback).
+
 Greybox scope (RULES.md §0): tinted rects, neutral names, no lore.
 """
 
 from __future__ import annotations
+
+from collections.abc import Callable
 
 from core.content_registry import ContentRegistry
 from core.enums import SceneID
@@ -19,6 +26,7 @@ from gameplay.player.aim_controller import AimController
 from gameplay.player.player import Player
 from gameplay.player.player_controller import PlayerController
 from gameplay.village.building import Building
+from gameplay.village.npc import NPC, NPCService
 from gameplay.village.village import GOLD, RELIC, VillageState
 from input.input_manager import Action, ActionFrame
 from physics.collision import AABB, CollisionWorld
@@ -41,6 +49,8 @@ _MSG_OK: Color = (110, 220, 110)
 _MSG_ERR: Color = (230, 110, 110)
 _PLAYER_COLOR: Color = (150, 195, 250)
 _DUNGEON_DOOR_COLOR: Color = (120, 70, 60)
+_NPC_COLOR: Color = (240, 220, 140)
+_NPC_ARRIVED_COLOR: Color = (140, 230, 160)
 
 # Building visual tiers -> tint (greybox only, not a content decision).
 _TIER_TINTS: dict[str, Color] = {
@@ -48,9 +58,13 @@ _TIER_TINTS: dict[str, Color] = {
     "tier1": _TIER1_COLOR,
 }
 
+# NPC spawn offset relative to their building's plot rect center.
+_NPC_OFFSET_X = 0.0
+_NPC_OFFSET_Y = 40.0
+
 
 class VillageScene(Scene):
-    """Walkable village hub with tiered building plots."""
+    """Walkable village hub with tiered building plots and service NPCs."""
 
     scene_id = SceneID.VILLAGE
 
@@ -63,6 +77,8 @@ class VillageScene(Scene):
         village: VillageState,
         registry: ContentRegistry | None = None,
         controller: PlayerController | None = None,
+        npc_service: NPCService | None = None,
+        on_enter_dungeon: Callable[[], None] | None = None,
     ) -> None:
         self.player = player
         self.room = room
@@ -76,6 +92,9 @@ class VillageScene(Scene):
         self._message_timer = 0.0
         self._message_is_error = False
         self._hovered_building: Building | None = None
+        self._hovered_npc: NPC | None = None
+        self._npc_service = npc_service
+        self._on_enter_dungeon = on_enter_dungeon
         # Dungeon entrance: bottom-center gap in the wall. The player walks
         # through it to start a run (Phase 15 wires the transition).
         self._dungeon_door_rect = AABB(560.0, 776.0, 160.0, 24.0)
@@ -100,6 +119,31 @@ class VillageScene(Scene):
                 nearest = building
         return nearest
 
+    def _nearest_npc(self, max_dist: float = 80.0) -> NPC | None:
+        """The nearest arrived NPC, if the player is close enough."""
+        if self._npc_service is None:
+            return None
+        px, py = self.player.body.x, self.player.body.y
+        nearest: NPC | None = None
+        best = max_dist
+        for npc in self._npc_service.arrived_npcs():
+            pos = self._npc_position(npc)
+            if pos is None:
+                continue
+            dist = ((px - pos[0]) ** 2 + (py - pos[1]) ** 2) ** 0.5
+            if dist < best:
+                best = dist
+                nearest = npc
+        return nearest
+
+    def _npc_position(self, npc: NPC) -> tuple[float, float] | None:
+        """Where the NPC stands (in front of their building)."""
+        building = self.village.buildings.get(npc.building_id)
+        if building is None or building.plot_rect is None:
+            return None
+        bx, by, bw, bh = building.plot_rect
+        return (bx + bw / 2.0 + _NPC_OFFSET_X, by + bh + _NPC_OFFSET_Y)
+
     def _try_upgrade(self, building: Building) -> None:
         """Attempt the building's next upgrade; show a message either way."""
         try:
@@ -112,6 +156,25 @@ class VillageScene(Scene):
         self._message = f"{upgraded.name} upgraded to tier {upgraded.current_tier + 1}"
         self._message_is_error = False
         _logger.info("Village upgrade OK: %s", self._message)
+
+    def _talk_to_npc(self, npc: NPC) -> None:
+        """Run the NPC's service (greybox): dialogue line + simple effect."""
+        line = npc.dialogue_line("greeting", "...")
+        self._message = f"{npc.name}: {line}"
+        self._message_is_error = False
+        # Service effects (greybox placeholders):
+        if npc.service == "run_prep":
+            self.player.health = self.player.stats.max_health
+            self._message = f"{npc.name}: Restored your health for the run."
+            _logger.info("NPC run_prep: player healed")
+        elif npc.service == "loadout":
+            options = npc.service_options()
+            if options:
+                self._message = f"{npc.name}: Expanded loadout options: {', '.join(options)}"
+        elif npc.service == "upgrades":
+            options = npc.service_options()
+            if options:
+                self._message = f"{npc.name}: New upgrade options: {', '.join(options)}"
 
     def _try_enter_dungeon(self) -> bool:
         """True when the player overlaps the dungeon entrance gap."""
@@ -126,13 +189,17 @@ class VillageScene(Scene):
         self.player.update(intent, self.world, dt)
 
         self._hovered_building = self._nearest_building()
+        self._hovered_npc = self._nearest_npc()
 
-        if Action.INTERACT in frame.pressed and self._hovered_building is not None:
-            self._try_upgrade(self._hovered_building)
+        if Action.INTERACT in frame.pressed:
+            if self._hovered_npc is not None:
+                self._talk_to_npc(self._hovered_npc)
+            elif self._hovered_building is not None:
+                self._try_upgrade(self._hovered_building)
 
-        if self._try_enter_dungeon():
-            self._message = "Dungeon entrance (run start — Phase 15)"
-            self._message_is_error = False
+        if self._try_enter_dungeon() and self._on_enter_dungeon is not None:
+            self._on_enter_dungeon()
+            return
 
         if self._message_timer > 0.0:
             self._message_timer -= dt
@@ -177,6 +244,22 @@ class VillageScene(Scene):
             sx, sy = self.camera.world_to_screen(bx + 8, by + 8)
             renderer.draw_text(label, int(sx), int(sy), _TEXT_COLOR, 14)
 
+        # NPCs (arrived only) in front of their buildings.
+        if self._npc_service is not None:
+            for npc in self._npc_service.arrived_npcs():
+                pos = self._npc_position(npc)
+                if pos is None:
+                    continue
+                sx, sy = self.camera.world_to_screen(*pos)
+                size = 18
+                color = _NPC_ARRIVED_COLOR
+                if npc is self._hovered_npc:
+                    color = (255, 255, 255)
+                renderer.draw_rect((int(sx - size / 2), int(sy - size / 2), size, size), color)
+                renderer.draw_text(
+                    npc.name, int(sx - 12), int(sy - size), _TEXT_COLOR, 11
+                )
+
         # Player.
         body_rect = self.camera.screen_rect(self.player.body.box)
         renderer.draw_rect(body_rect, _PLAYER_COLOR)
@@ -190,15 +273,18 @@ class VillageScene(Scene):
             20, 20, _TEXT_COLOR, 16,
         )
         renderer.draw_text(
-            "WASD move  |  F: interact (upgrade building)",
+            "WASD move  |  F: interact (talk / upgrade)",
             20, h - 34, _HINT_COLOR, 13,
         )
         renderer.draw_text(
-            "Walk to the bottom-center door to enter the dungeon",
+            "Walk to the bottom-center gate to enter the dungeon",
             20, h - 18, _HINT_COLOR, 12,
         )
 
-        if self._hovered_building is not None:
+        if self._hovered_npc is not None:
+            sx, sy = self.camera.world_to_screen(*self._npc_position(self._hovered_npc) or (0, 0))  # noqa: E501
+            renderer.draw_text("[F] Talk", int(sx - 18), int(sy + 16), (255, 220, 120), 12)
+        elif self._hovered_building is not None:
             rect = self._hovered_building.plot_rect
             if rect is not None:
                 sx, sy = self.camera.world_to_screen(
@@ -210,4 +296,4 @@ class VillageScene(Scene):
 
         if self._message:
             color = _MSG_OK if not self._message_is_error else _MSG_ERR
-            renderer.draw_text(self._message, w // 2 - 160, h // 2, color, 16)
+            renderer.draw_text(self._message, w // 2 - 220, h // 2, color, 16)

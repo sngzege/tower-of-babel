@@ -115,10 +115,10 @@ def test_full_stage_walkthrough_reaches_stage_exit() -> None:
         f"stage not complete after walk; rooms visited: {rooms_visited}"
     )
     assert scene.stage_completed
-    # 3 normal floors + 1 boss floor.
-    assert visited_floors == {0, 1, 2, 3}, f"visited {visited_floors}"
+    # 4 normal floors + 1 boss floor (L7: 5 floors per stage).
+    assert visited_floors == {0, 1, 2, 3, 4}, f"visited {visited_floors}"
     # Every floor start room was entered.
-    for floor_index in (1, 2, 3):
+    for floor_index in (1, 2, 3, 4):
         start_id = manager.stage_data.floors[floor_index].start_room_id
         assert start_id in rooms_visited
     assert saw_enemies, "no enemies encountered during the walkthrough"
@@ -189,13 +189,9 @@ def test_boss_room_spawns_boss_on_entry() -> None:
     scene, manager = _build_stage_scene(seed=42)
     # Walk through all floors to reach the boss.
     floors = len(manager.stage_data.floors)
-    for _ in range(floors - 1):
-        _walk_through_rightmost_door(scene)
-    # Walk through normal floors until we reach the boss.
-    # Count floors visited.
     visited = {manager.floor_index}
     safety = 0
-    while manager.floor_index < floors - 1 and safety < 20:
+    while manager.floor_index < floors - 1 and safety < MAX_STEPS:
         _walk_through_rightmost_door(scene)
         visited.add(manager.floor_index)
         safety += 1
@@ -208,13 +204,21 @@ def test_boss_room_spawns_boss_on_entry() -> None:
     assert scene._boss.health == 300.0
 
 
+def _walk_to_boss_floor(scene: PlaytestScene, manager: StageManager) -> None:
+    """Walk rightmost doors until the boss floor is reached."""
+    floors = len(manager.stage_data.floors)
+    safety = 0
+    while manager.floor_index < floors - 1 and safety < MAX_STEPS:
+        _walk_through_rightmost_door(scene)
+        safety += 1
+    assert manager.floor_index == floors - 1, "could not reach boss floor"
+
+
 def test_boss_block_exit_while_alive() -> None:
     """Player cannot exit the boss arena while the boss lives."""
     scene, manager = _build_stage_scene(seed=42)
     # Walk to the boss floor.
-    floors = len(manager.stage_data.floors)
-    while manager.floor_index < floors - 1:
-        _walk_through_rightmost_door(scene)
+    _walk_to_boss_floor(scene, manager)
     # Now in boss room.
     assert scene._boss is not None and scene._boss.alive
     # Try walking through the exit — should be blocked.
@@ -227,9 +231,7 @@ def test_boss_block_exit_while_alive() -> None:
 def test_boss_allows_exit_after_death() -> None:
     """Killing the boss allows exiting the arena."""
     scene, manager = _build_stage_scene(seed=42)
-    floors = len(manager.stage_data.floors)
-    while manager.floor_index < floors - 1:
-        _walk_through_rightmost_door(scene)
+    _walk_to_boss_floor(scene, manager)
     # Kill the boss.
     assert scene._boss is not None
     scene._boss.health = 0.0
