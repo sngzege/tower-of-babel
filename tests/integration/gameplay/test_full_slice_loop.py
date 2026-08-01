@@ -58,6 +58,9 @@ class RecordingRenderer:
     def draw_text(self, text, x, y, color, font_size=12) -> None:  # noqa: ANN001
         pass
 
+    def draw_image(self, image_id, x, y, scale=2) -> None:  # noqa: ANN001
+        pass
+
     def clear(self, color) -> None:  # noqa: ANN001
         pass
 

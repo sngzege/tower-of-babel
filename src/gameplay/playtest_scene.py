@@ -1230,7 +1230,13 @@ class PlaytestScene(Scene):
 
     def render(self, renderer: Renderer) -> None:
         self._screen_h = renderer.size[1]
-        renderer.draw_rect(self.camera.screen_rect(self.room.bounds), _FLOOR_COLOR)
+        # Floor tiles (16x16 grid, night base).
+        tile = 16
+        tw, th = self.room.width, self.room.height
+        for ty in range(0, int(th), tile):
+            for tx in range(0, int(tw), tile):
+                sx, sy = self.camera.world_to_screen(tx, ty)
+                renderer.draw_image("tile_floor", int(sx), int(sy), scale=1)
         for solid in self.room.solids:
             renderer.draw_rect(self.camera.screen_rect(solid), _WALL_COLOR)
 
@@ -1253,10 +1259,19 @@ class PlaytestScene(Scene):
             # Determine color by enemy type (elite = gold, normal = red).
             e_tags: frozenset[str] = getattr(enemy.config, 'tags', frozenset()) if hasattr(enemy.config, 'tags') else frozenset()  # noqa: E501
             is_elite = 'elite' in e_tags
-            base_color = _ELITE_COLOR if is_elite else _ENEMY_COLOR
-            # Damage flash.
-            flash_color = (255, 255, 255) if self._enemy_flash_timers.get(enemy.entity.name, 0) > 0 else base_color  # noqa: E501
-            renderer.draw_rect(self.camera.screen_rect(enemy.body.box), flash_color)
+            sprite_id = "elite" if is_elite else "dummy"
+            # Damage flash: draw a white overlay sprite variant by tinting via rect.
+            sx, sy = self.camera.world_to_screen(
+                enemy.body.x - enemy.body.width / 2,
+                enemy.body.y - enemy.body.height / 2,
+            )
+            scale = max(1, int(self.camera.zoom))
+            renderer.draw_image(sprite_id, int(sx), int(sy), scale=scale)
+            if self._enemy_flash_timers.get(enemy.entity.name, 0) > 0:
+                renderer.draw_rect((
+                    int(sx), int(sy),
+                    int(enemy.body.width * scale), int(enemy.body.height * scale),
+                ), (255, 255, 255, 120) if False else (255, 255, 255))
             ha = enemy.hurtbox.box_at(enemy.body.x, enemy.body.y)
             renderer.draw_rect(self.camera.screen_rect(ha), _ENEMY_HURTBOX_ALPHA)
             ratio = enemy.health / enemy.config.max_health
@@ -1273,10 +1288,12 @@ class PlaytestScene(Scene):
 
         # Boss.
         if self._boss is not None and self._boss.alive:
-            boss_color = _BOSS_COLOR
-            if self._boss_ai is not None and self._boss_ai.phase is BossPhase.PHASE_2:
-                boss_color = _PHASE_2_COLOR
-            renderer.draw_rect(self.camera.screen_rect(self._boss.body.box), boss_color)
+            bx_, by_ = self.camera.world_to_screen(
+                self._boss.body.x - self._boss.body.width / 2,
+                self._boss.body.y - self._boss.body.height / 2,
+            )
+            scale = max(1, int(self.camera.zoom))
+            renderer.draw_image("boss", int(bx_), int(by_), scale=scale)
             ha = self._boss.hurtbox.box_at(self._boss.body.x, self._boss.body.y)
             renderer.draw_rect(self.camera.screen_rect(ha), _BOSS_HURTBOX_COLOR)
             ratio = self._boss.health / self._boss.config.max_health
@@ -1299,28 +1316,25 @@ class PlaytestScene(Scene):
                     renderer.draw_rect(self.camera.screen_rect(hb), _BOSS_ATTACK_COLOR)
 
         # Player.
-        pose = self.player.animation_pose
         px, py = self.player.body.x, self.player.body.y
         pw, ph = self.player.body.width, self.player.body.height
-        color = _STATE_COLORS[pose.state]
+        # Draw the pixel-art sprite centered on the body, feet at box bottom.
+        psx, psy = self.camera.world_to_screen(px - pw / 2, py - ph / 2)
+        scale = max(1, int(self.camera.zoom))
+        renderer.draw_image("player", int(psx), int(psy), scale=scale)
         if self.player.invulnerable:
-            color = _INVULNERABLE_TINT
-
-        # Draw player as a directional shape: body rectangle + arrow head.
-        body_rect = self.camera.screen_rect(self.player.body.box)
-        renderer.draw_rect(body_rect, color)
-
-        # Draw an inner border to distinguish from enemies.
-        inner = (body_rect[0] + 2, body_rect[1] + 2, body_rect[2] - 4, body_rect[3] - 4)
-        inner_color = (
-            min(255, color[0] + 40),
-            min(255, color[1] + 40),
-            min(255, color[2] + 60),
-        )
-        renderer.draw_rect(inner, inner_color)
+            # Dodge i-frames: bright outline so invulnerability stays readable.
+            renderer.draw_rect((int(psx) - 1, int(psy) - 1,
+                                int(pw * scale) + 2, int(ph * scale) + 2),
+                               (255, 255, 255))
 
         # Facing arrow: 3 stacked rectangles forming a directional arrow.
-        fx, fy = pose.facing.vector
+        fx, fy = self.player.aim_vector
+        if (fx * fx + fy * fy) > 0.001:
+            flen = (fx * fx + fy * fy) ** 0.5
+            fx, fy = fx / flen, fy / flen
+        else:
+            fx, fy = 0.0, 1.0
         screen_scale = max(1, int(self.camera.zoom * 0.5))
         for step in range(1, 4):
             tip_x = int(px + fx * (ph / 2 + step * 5) - 3)
@@ -1330,7 +1344,7 @@ class PlaytestScene(Scene):
             renderer.draw_rect((sx, sy, arr_size * screen_scale, arr_size * screen_scale), (255, 255, 255))  # noqa: E501
 
         # Dodge indicator (small trail when dodging).
-        if pose.state is PlayerState.DODGE:
+        if self.player.state is PlayerState.DODGE:
             trail_color = (255, 255, 100)
             for t in range(1, 4):
                 tx = int(px - fx * t * 6)

@@ -21,3 +21,4 @@ logs/*
 saves/*
 !saves/.gitkeep
 .local-docs/
+tools/screenshots/

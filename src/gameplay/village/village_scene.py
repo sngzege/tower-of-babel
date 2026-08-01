@@ -211,7 +211,13 @@ class VillageScene(Scene):
     # -- Render --
 
     def render(self, renderer: Renderer) -> None:
-        renderer.draw_rect(self.camera.screen_rect(self.room.bounds), _GRASS_COLOR)
+        # Grass/floor tiles.
+        tile = 16
+        tw, th = self.room.width, self.room.height
+        for ty in range(0, int(th), tile):
+            for tx in range(0, int(tw), tile):
+                sx, sy = self.camera.world_to_screen(tx, ty)
+                renderer.draw_image("tile_floor", int(sx), int(sy), scale=1)
         for solid in self.room.solids:
             renderer.draw_rect(self.camera.screen_rect(solid), _WALL_COLOR)
 
@@ -226,23 +232,18 @@ class VillageScene(Scene):
             if rect is None:
                 continue
             bx, by, bw, bh = rect
-            screen_rect = self.camera.screen_rect(AABB(bx, by, bw, bh))
-            tint = _TIER_TINTS.get(building.visual_state, _PLOT_COLOR)
-            # Hovered building gets a brighter frame.
+            sprite_id = "building_tier1" if building.visual_state == "tier1" else "building_plot"
+            # Sprite feet align with the plot bottom; scale to fit plot width.
+            scale = max(1, int(bw / 32))
+            sx, sy = self.camera.world_to_screen(bx, by + bh - 32 * scale)
+            renderer.draw_image(sprite_id, int(sx), int(sy), scale=scale)
+            # Hover frame.
             if building is self._hovered_building:
-                renderer.draw_rect(screen_rect, (255, 255, 255))
-                inner = (screen_rect[0] + 3, screen_rect[1] + 3,
-                         screen_rect[2] - 6, screen_rect[3] - 6)
-                renderer.draw_rect(inner, tint)
-            else:
-                renderer.draw_rect(screen_rect, tint)
-                inner = (screen_rect[0] + 2, screen_rect[1] + 2,
-                         screen_rect[2] - 4, screen_rect[3] - 4)
-                renderer.draw_rect(inner, _BUILDING_FRAME)
+                renderer.draw_rect(self.camera.screen_rect(AABB(bx, by, bw, bh)), (255, 255, 255))
             # Building name + tier.
             label = f"{building.name}  T{building.current_tier + 1}"
-            sx, sy = self.camera.world_to_screen(bx + 8, by + 8)
-            renderer.draw_text(label, int(sx), int(sy), _TEXT_COLOR, 14)
+            lx, ly = self.camera.world_to_screen(bx + 8, by + 8)
+            renderer.draw_text(label, int(lx), int(ly), _TEXT_COLOR, 14)
 
         # NPCs (arrived only) in front of their buildings.
         if self._npc_service is not None:
@@ -251,18 +252,25 @@ class VillageScene(Scene):
                 if pos is None:
                     continue
                 sx, sy = self.camera.world_to_screen(*pos)
-                size = 18
-                color = _NPC_ARRIVED_COLOR
-                if npc is self._hovered_npc:
-                    color = (255, 255, 255)
-                renderer.draw_rect((int(sx - size / 2), int(sy - size / 2), size, size), color)
+                scale = max(1, int(self.camera.zoom))
+                npc_sprite = {
+                    "loadout": "npc_loadout",
+                    "run_prep": "npc_run_prep",
+                    "upgrades": "npc_upgrades",
+                }.get(npc.service, "npc")
+                renderer.draw_image(
+                    npc_sprite, int(sx - 8 * scale), int(sy - 16 * scale), scale=scale
+                )
                 renderer.draw_text(
-                    npc.name, int(sx - 12), int(sy - size), _TEXT_COLOR, 11
+                    npc.name, int(sx - 12), int(sy - 18 * scale), _TEXT_COLOR, 11
                 )
 
         # Player.
-        body_rect = self.camera.screen_rect(self.player.body.box)
-        renderer.draw_rect(body_rect, _PLAYER_COLOR)
+        px, py = self.player.body.x, self.player.body.y
+        pw, ph = self.player.body.width, self.player.body.height
+        psx, psy = self.camera.world_to_screen(px - pw / 2, py - ph / 2)
+        scale = max(1, int(self.camera.zoom))
+        renderer.draw_image("player", int(psx), int(psy), scale=scale)
 
         # HUD: village resources + town level.
         w, h = renderer.size

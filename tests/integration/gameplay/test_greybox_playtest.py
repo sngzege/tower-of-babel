@@ -31,6 +31,7 @@ class RecordingRenderer:
     def __init__(self) -> None:
         self.rects: list[tuple[tuple[int, int, int, int], tuple[int, int, int]]] = []
         self.texts: list[str] = []
+        self.images: list[tuple[str, int, int, int]] = []
 
     @property
     def size(self) -> tuple[int, int]:
@@ -43,6 +44,9 @@ class RecordingRenderer:
 
     def draw_text(self, text: str, x: int, y: int, color: tuple[int, int, int], font_size: int = 12) -> None:  # noqa: E501
         self.texts.append(text)
+
+    def draw_image(self, image_id: str, x: int, y: int, scale: int = 2) -> None:
+        self.images.append((image_id, x, y, scale))
 
     def clear(self, color: tuple[int, int, int]) -> None:
         pass
